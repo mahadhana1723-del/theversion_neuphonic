@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>🏸 Dashboard</title>
+
+<style>
+  :root {
+    --bg:#e8eef7; --card:#e8eef7; --text:#203347; --muted:#5b6b7a;
+    --primary:#4b6cb7; --accent:#355caa;
+    --radius:16px;
+  }
+  :root.dark {
+    --bg:#0f1720; --card:#0b1220; --text:#e6eefb; --muted:#9fb4d6;
+    --primary:#6ea8ff; --accent:#3d72f2;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{font-family:system-ui,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text);padding:16px;}
+
+  h1{margin-bottom:20px;}
+
+  /* KPI Grid */
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:20px;}
+  .kpi-card{
+    background:var(--card);padding:20px;text-align:center;
+    border-radius:var(--radius);
+    box-shadow:9px 9px 20px rgba(163,177,198,0.55),-9px -9px 20px rgba(255,255,255,0.9);
+  }
+  .kpi-value{font-size:28px;font-weight:700;color:var(--accent);}
+  .kpi-label{font-size:14px;color:var(--muted);}
+
+  /* Cards */
+  .card{
+    background:var(--card);padding:16px;margin-bottom:20px;border-radius:var(--radius);
+    box-shadow:9px 9px 20px rgba(163,177,198,0.55),-9px -9px 20px rgba(255,255,255,0.9);
+  }
+  .card h2{margin-bottom:12px;}
+
+  /* Table */
+  table{width:100%;border-collapse:collapse;}
+  th,td{padding:10px;text-align:center;}
+  th{color:var(--muted);}
+  tr:hover{background:rgba(0,0,0,0.03);}
+
+  /* Live Ticker */
+  #liveTicker{
+    display:flex;overflow-x:auto;gap:12px;padding:10px;
+  }
+  .match-pill{
+    background:var(--card);padding:10px 16px;border-radius:30px;white-space:nowrap;
+    box-shadow:inset 6px 6px 12px rgba(0,0,0,0.08),inset -6px -6px 12px rgba(255,255,255,0.8);
+  }
+
+  @media(max-width:600px){ body{padding:10px;} }
+</style>
+<script src="db.js"></script>
+</head>
+<body>
+
+<h1>🏸 Dashboard</h1>
+
+<!-- KPI section -->
+<div class="kpi-grid">
+  <div class="kpi-card">
+    <div class="kpi-value" id="kpiPlayers">0</div>
+    <div class="kpi-label">Players</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-value" id="kpiMatches">0</div>
+    <div class="kpi-label">Matches</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-value" id="kpiAttendance">0</div>
+    <div class="kpi-label">Present Today</div>
+  </div>
+</div>
+
+<!-- Live ticker -->
+<div class="card">
+  <h2>Live Matches</h2>
+  <div id="liveTicker">Loading…</div>
+</div>
+
+<!-- Recent Matches -->
+<div class="card">
+  <h2>Recent Results</h2>
+  <table id="recentTable">
+    <thead><tr><th>Match</th><th>Score</th><th>Status</th></tr></thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<script>
+(async()=>{
+  await openDB();
+
+  async function refreshDashboard(){
+    const players=await getAll("players");
+    const matches=await getAll("matches");
+
+
+  // KPI
+document.getElementById("kpiPlayers").textContent=players.length;
+document.getElementById("kpiMatches").textContent=matches.length;
+
+// --- Present Today from localStorage ---
+const raw=localStorage.getItem("attendance_v1");
+let present=0;
+if(raw){
+  try {
+    const S=JSON.parse(raw);
+    const d=(new Date()).toISOString().slice(0,10);
+    const todayRec=S.records[d]||{};
+    present=Object.values(todayRec).filter(st=>st==='P').length;
+  } catch(e){
+    console.error("Attendance parse error:",e);
+  }
+}
+document.getElementById("kpiAttendance").textContent=present;
+
+
+    // Live ticker
+    const ticker=document.getElementById("liveTicker");
+    ticker.innerHTML="";
+    matches.filter(m=>m.status==="live"||m.status==="completed")
+           .slice(-10)
+           .forEach(m=>{
+      const pill=document.createElement("div");
+      pill.className="match-pill";
+      pill.textContent=`${m.player1} ${m.score1||0} - ${m.score2||0} ${m.player2}`;
+      ticker.appendChild(pill);
+    });
+    if(!ticker.innerHTML) ticker.textContent="No live matches";
+
+    // Recent results table
+    const tbody=document.querySelector("#recentTable tbody");
+    tbody.innerHTML="";
+    matches.slice(-5).reverse().forEach(m=>{
+      const tr=document.createElement("tr");
+      tr.innerHTML=`<td>${m.player1} vs ${m.player2}</td>
+        <td>${m.score1||0} - ${m.score2||0}</td>
+        <td>${m.status||"-"}</td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  // Initial + auto refresh
+  refreshDashboard();
+  setInterval(refreshDashboard,10000);
+})();
+</script>
+</body>
+</html>
