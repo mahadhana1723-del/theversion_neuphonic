@@ -1,0 +1,1479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>🏸 Badminton Knockout + IndexedDB</title>
+<style>
+/* -------------------------
+   Bracket — Neumorphic CSS
+   - Full rewrite
+   - Preserves: --box-w, --box-h, --col-gap, --row-gap
+   - DOES NOT change .box.win / .box.loss / .edge win/loss colors
+   ------------------------- */
+
+:root{
+  --bg:#fdf4ff; 
+  --panel:#ffffff; 
+  --panel-2:#f9f5ff; 
+  --muted:#6b5a86; 
+  --text:#2d103f;
+  --accent:#355caa;   /* Blue accent */
+  --primary:#4b6cb7;
+  --win:#22c55e; 
+  --loss:#ef4444; 
+  --neutral:#7b88a8;
+  --box-w:180px; 
+  --box-h:48px; 
+  --col-gap:180px; 
+  --row-gap:28px;
+
+  --shadow-soft: 10px 12px 30px rgba(20,22,50,0.07);
+  --shadow-raise: -8px -8px 20px rgba(255,255,255,0.9);
+  --inset: inset 3px 3px 10px rgba(0,0,0,0.03);
+  --panel-border: 1px solid rgba(0,0,0,0.06);
+  --radius:14px;
+}
+
+/* Dark theme (toggle by adding .dark on <html> or via JS) */
+:root.dark {
+  --bg:#0f1720;
+  --panel:#0b1220;
+  --panel-2:#141826;
+  --muted:#9fb4d6;
+  --text:#e6eefb;
+  --accent:#7c3aed;
+  --shadow-soft: 4px 6px 18px rgba(0,0,0,0.6);
+  --shadow-raise: -4px -4px 12px rgba(255,255,255,0.03);
+  --inset: inset 2px 2px 6px rgba(0,0,0,0.6);
+  --panel-border: 1px solid rgba(255,255,255,0.03);
+}
+
+/* ---------- Base ---------- */
+* { box-sizing: border-box; }
+html,body { height:100%; }
+body {
+  margin:0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  transition: background .25s, color .25s;
+}
+
+/* ---------- Header ---------- */
+header{
+  position:sticky; top:0; z-index:60;
+  padding:12px 14px;
+  display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+  background: linear-gradient(90deg, var(--panel), var(--panel-2));
+  border-radius: calc(var(--radius) - 4px);
+  box-shadow: var(--shadow-soft), var(--shadow-raise);
+  border: var(--panel-border);
+}
+h1{ margin:0; font-size:18px; font-weight:600; color:var(--accent); }
+.controls{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+
+/* Inputs & buttons (neumorphic) */
+input, textarea, select, button {
+  padding:6px 10px;
+  border-radius:10px;
+  border:1px solid rgba(0,0,0,0.04);
+  background: linear-gradient(145deg, var(--panel), var(--panel-2));
+  color: var(--text);
+  box-shadow: var(--inset), 0 1px 0 rgba(255,255,255,0.35) inset;
+}
+textarea{ width:220px; height:60px; }
+button { cursor:pointer; box-shadow: var(--shadow-soft); transition:transform .12s, box-shadow .12s; }
+button:hover{ transform: translateY(-2px); }
+
+/* primary button */
+.btn.primary {
+  background: linear-gradient(135deg, var(--accent), #a855f7);
+  color:#fff; border: none; box-shadow: 0 8px 20px rgba(168,85,247,0.12);
+}
+
+/* ---------- Player Panel (sidebar) ---------- */
+#playerPanel, #playerSidebar {
+  position: fixed; top: 14%; left: 0;
+  height: 72%; width: 240px;
+  background: linear-gradient(145deg, var(--panel), var(--panel-2));
+  border-radius: 0 12px 12px 0;
+  box-shadow: var(--shadow-soft);
+  border: var(--panel-border);
+  transform: translateX(-100%);
+  transition: transform .3s ease;
+  z-index:150; padding:12px; overflow:auto;
+}
+#playerPanel.open, #playerSidebar.active { transform: translateX(0); }
+
+#playerPanel .header, #playerSidebar .header {
+  position: sticky; top:0; background: transparent; padding-bottom:10px; margin-bottom:8px;
+}
+
+/* player mini cards */
+.player-card {
+  display:flex; gap:10px; align-items:center;
+  padding:10px; border-radius:12px;
+  background: linear-gradient(145deg, var(--panel-2), var(--panel));
+  border: var(--panel-border);
+  box-shadow: 6px 6px 14px rgba(10,12,30,0.03);
+  transition: transform .12s, background .12s;
+}
+.player-card:hover { transform: translateY(-4px); background: linear-gradient(145deg,#fff,#f6eeff); }
+
+/* avatar */
+.player-card img {
+  width:44px; height:44px; border-radius:8px;
+  object-fit:cover; border:2px solid var(--accent);
+  flex-shrink: 0;
+}
+
+/* ---------- Layout: main / board / aside ---------- */
+main { display:grid; grid-template-columns: 1fr 300px; gap:14px; padding:14px; }
+.board {
+  position: relative;
+  border-radius: 14px;
+  background: linear-gradient(180deg, var(--panel), var(--panel-2));
+  border: var(--panel-border);
+  box-shadow: var(--shadow-soft);
+
+  /* Full screen visual */
+  width: 100%;
+  height: calc(100vh - 80px); /* leave space for header */
+  overflow: auto;
+
+  /* breathing space inside */
+  padding-left: 20px;
+  padding-top: 50px;
+  box-sizing: border-box;
+}
+
+.board-inner {
+  position: relative;
+  display: inline-block;
+    /* ensures full content width */
+  padding: 20px ;           /* gap so boxes not touch edges */
+  min-width: 100%;         /* ensures at least full width */
+  min-height: 100%;        /* ensures at least full height */
+  box-sizing: border-box;
+}
+
+/* Mobile */
+@media (max-width: 820px) {
+  .board {
+    height: calc(100vh - 60px);
+    padding: 10px;
+  }
+  .board-inner {
+    padding: 12px;
+  }
+}
+
+
+/* svg connection lines layer (stays pointer-events:none) */
+svg#lines { position:absolute; inset:0; pointer-events:none; }
+
+/* ---------- Bracket boxes (neumorphic) ---------- */
+/* keep exact geometry variables unchanged; visual styling updated */
+.box {
+  width: var(--box-w);
+  height: var(--box-h);
+  position: absolute;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: linear-gradient(145deg, var(--panel), var(--panel-2));
+  border: 1px solid rgba(0,0,0,0.06);
+  box-shadow: var(--shadow-soft);
+  font-weight:700;
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+  transition: transform .12s, box-shadow .12s;
+}
+.box:hover { transform: translateY(-4px); box-shadow: 0 20px 40px rgba(20,20,60,0.08); }
+
+/* Seed / name / bye */
+.seed {
+  font-size:11px;
+  color:var(--muted);
+  background: linear-gradient(145deg,var(--panel),var(--panel-2));
+  border:1px solid rgba(0,0,0,0.04);
+  padding:4px 6px;
+  border-radius:8px;
+  min-width:34px;
+  text-align:center;
+}
+.name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding-left:6px; }
+.bye { opacity:.65; font-style:italic; }
+
+/* ---------- IMPORTANT: preserve outcome colors EXACTLY ---------- */
+/* We do not change these variable values. Keep them and only add subtle bg tints. */
+.box.win   { border-color: var(--win); background: linear-gradient(145deg, rgba(34,197,94,0.06), rgba(245,255,245,0.02)); color: var(--win); }
+.box.loss  { border-color: var(--loss);  background: linear-gradient(145deg, rgba(239,68,68,0.06), rgba(255,245,245,0.02)); color: var(--loss); }
+.box.neutral{ border-color: var(--neutral); color: var(--neutral); }
+
+/* ---------- Connection edges (SVG) - keep stroke colors intact ---------- */
+.edge           { stroke: var(--neutral); stroke-width: 2; fill: none; vector-effect: non-scaling-stroke; }
+.edge.win       { stroke: var(--win); }
+.edge.loss      { stroke: var(--loss); }
+
+/* ---------- Scorecard popup (neumorphic) ---------- */
+.scorecard {
+  position:absolute; transform: translate(-50%,-130%);
+  background: linear-gradient(145deg,var(--panel),var(--panel-2));
+  border-radius: 10px;
+  padding:8px;
+  display:flex; align-items:center; gap:8px;
+  border: 1px solid rgba(0,0,0,0.06);
+  box-shadow: var(--shadow-soft);
+  z-index: 12;
+}
+.scorecard .lab { font-size:12px; color:var(--muted); max-width:420px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.scorecard input {
+  width:56px; text-align:center;
+  border-radius:8px; border:1px solid rgba(0,0,0,0.06);
+  background: linear-gradient(145deg,var(--panel-2),var(--panel));
+  padding:6px;
+  box-shadow: var(--inset);
+}
+
+/* ---------- Aside / Stats ---------- */
+aside {
+  border-radius: 12px;
+  background: linear-gradient(145deg,var(--panel),var(--panel-2));
+  padding:12px;
+  border: var(--panel-border);
+  box-shadow: var(--shadow-soft);
+}
+table { width:100%; border-collapse: separate; border-spacing: 0 8px; }
+th, td { font-size:13px; padding:8px; text-align:right; }
+th:first-child, td:first-child { text-align:left; }
+
+/* preserve stat cell colors */
+td.win { color: var(--win); font-weight:700; }
+td.loss { color: var(--loss); font-weight:700; }
+
+/* champ highlight (keeps original gold styling) */
+.champ {
+  border-color: gold !important;
+  color: gold !important;
+  background: linear-gradient(145deg,#fffaf0,#fff7e6);
+}
+
+/* === Player Edit Modal Styling Fix === */
+/* ==============================
+   Player Modal — Alignment Fix
+   ============================== */
+#playerModal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.45);
+  z-index: 220;
+}
+#playerModal.open { display: flex; }
+#playerModal.hidden { display: none; }
+
+#playerModal .modal-content {
+  position: relative;
+  background: var(--panel);
+  border-radius: 16px;
+  padding: 20px;
+  width: min(900px, 95vw);
+  max-height: 92vh;
+  overflow-y: auto;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.2);
+  color: var(--text);
+}
+
+/* header inside modal */
+#playerModal .modal-content h2 {
+  margin: 0 0 16px;
+  font-size: 18px;
+  color: var(--accent);
+}
+#playerModal .close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  font-size: 22px;
+  cursor: pointer;
+  background: none;
+  border: 0;
+  color: var(--muted);
+}
+#playerModal .close:hover { color: var(--accent); }
+
+/* grid layout */
+.player-editor {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 20px;
+}
+@media (max-width: 768px) {
+  .player-editor { grid-template-columns: 1fr; }
+}
+
+/* left column (photo) */
+.player-avatar {
+  background: var(--panel-2);
+  border: 1px solid #e5e0eb;
+  border-radius: 12px;
+  padding: 14px;
+  text-align: center;
+}
+.player-avatar img {
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  border: 3px solid var(--accent);
+  object-fit: cover;
+  margin-bottom: 10px;
+}
+.player-avatar input[type="file"] {
+  font-size: 13px;
+  margin-top: 6px;
+}
+
+/* right column (form) */
+.player-form {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 12px;
+}
+.f {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.f label {
+  font-size: 12px;
+  color: var(--muted);
+}
+.f input,
+.f textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #e5e0eb;
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--text);
+}
+.f textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+/* span helpers */
+.span-3 { grid-column: span 3; }
+.span-4 { grid-column: span 4; }
+.span-5 { grid-column: span 5; }
+.span-6 { grid-column: span 6; }
+.span-12 { grid-column: 1 / -1; }
+
+/* stats block */
+#modalStats {
+  background: var(--panel-2);
+  border: 1px solid #e5e0eb;
+  border-radius: 10px;
+  padding: 10px;
+  font-size: 13px;
+}
+
+/* action buttons */
+.modal-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+.modal-actions button {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 0;
+  cursor: pointer;
+  font-weight: 600;
+  background: var(--panel-2);
+  color: var(--text);
+  transition: 0.2s;
+}
+#modalSaveBtn { background: var(--accent); color: #fff; }
+#modalDeleteBtn { background: var(--loss); color: #fff; }
+#modalCancelBtn { background: var(--neutral); color: #fff; }
+
+
+
+/* ---------- small helpers and responsive ---------- */
+.hidden { display:none !important; }
+
+/* keep bracket geometry responsive without changing --box size */
+@media (max-width: 1100px) {
+  .board-inner { min-width: 860px; }
+}
+@media (max-width: 820px) {
+  main { grid-template-columns: 1fr; }
+  #playerPanel, #playerSidebar { display:none; }
+  .board-inner { margin:20px; min-width:760px; min-height:420px; }
+}
+
+@media print {
+  header, aside { display:none !important; }
+  body { background:#fff; }
+  .board {
+    overflow: visible !important;
+    border: none !important;
+    box-shadow: none !important;
+    width: 100% !important;
+    height: auto !important;
+  }
+  .board-inner {
+    margin: 0 !important;
+    padding: 0 !important;
+    transform: scale(0.75);       /* scale to fit page */
+    transform-origin: top left;
+  }
+  svg#lines { display: block !important; } /* keep bracket lines in print */
+}
+
+/* Toggle header button */
+#toggleHeaderBtn {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  z-index: 250;
+  background: linear-gradient(90deg, var(--accent), var(--win));
+  border: none;
+  border-radius: 8px;
+  padding: 6px 12px;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+  transition: opacity .2s;
+}
+#toggleHeaderBtn:hover { opacity: 0.9; }
+
+header.hidden { display: none !important; }
+
+</style>
+
+</head>
+<body>
+  <button id="toggleHeaderBtn">Hide Header</button>
+<header>
+  
+
+  <h1 id="title">🏸 Badminton Knockout</h1>
+  
+  <!-- Menu button for mobile -->
+  <button class="btn" id="menuToggle">☰ Menu</button>
+
+  <!-- Controls -->
+  <div class="controls" id="controlsPanel">
+    <button class="btn" id="togglePlayersBtn">👥 Players</button>
+
+    <!-- NEW: Category selector (IndexedDB buckets) -->
+    <select id="category" title="Category (stored separately in IndexedDB)"></select>
+
+    <select id="mode" title="Singles / Doubles / Auto Doubles">
+      <option value="singles">Singles</option>
+      <option value="doubles">Doubles</option>
+      <option value="auto_doubles">Auto Doubles</option>
+    </select>
+
+    <select id="format" title="Match format">
+      <option value="single">Single game</option>
+      <option value="bo3">Best of 3</option>
+    </select>
+    <input id="tName" placeholder="Tournament Name">
+    <input id="tDate" type="date">
+    <label><input type="checkbox" id="shuffle"> Randomize</label>
+    <button class="btn primary" id="buildBtn">Generate</button>
+    <button class="btn" id="resetBtn">Reset</button>
+    
+    <!-- Persistence shortcuts -->
+    <button class="btn" id="saveDbBtn" title="Save tournament to IndexedDB">💾 Save</button>
+    <button class="btn" id="loadDbBtn" title="Load from IndexedDB">📂 Load</button>
+
+    <!-- File I/O stays -->
+    <button class="btn" id="exportBtn">Export</button>
+    <input id="importFile" type="file" style="display:none">
+    <button class="btn" id="importBtn">Import</button>
+    <button class="btn" id="printBtn">Print</button>
+
+    <span class="legend" id="count">0 players</span>
+    <input id="playerName" placeholder="Add player/team">
+    <button class="btn" id="addBtn">＋ Add</button>
+    <textarea id="bulk" placeholder="Paste names list"></textarea>
+    <button class="btn" id="bulkBtn">Add List</button>
+    <button class="btn" id="clearBtn">Clear All</button>
+  </div>
+</header>
+
+<main>
+  <!-- Middle: Brackets -->
+  <section class="board">
+    <div class="board-inner" id="board">
+      <svg id="lines"></svg>
+    </div>
+  </section>
+
+  <!-- Right: Stats -->
+  <aside id="statsPanel">
+    <h3>Statistics</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th><th>Name</th><th>P</th><th>W</th><th>L</th><th>PF</th><th>PA</th><th>+/-</th>
+        </tr>
+      </thead>
+      <tbody id="statsBody"></tbody>
+    </table>
+  </aside>
+</main>
+
+<aside id="playerSidebar">
+  <div class="header">
+    <h3 style="margin:0;font-size:16px;">Players</h3>
+    <button id="closeSidebarBtn" style="background:none;border:0;font-size:20px;cursor:pointer;color:var(--text);">×</button>
+  </div>
+  <div id="playerList"></div>
+</aside>
+
+<div id="playerModal" class="modal hidden">
+  <div class="modal-content">
+    <span class="close">&times;</span>
+    <h2>Edit Player</h2>
+
+    <div class="player-editor">
+      <div class="player-avatar">
+        <img id="modalPhoto" src="default.png" alt="Player Photo">
+        <input type="file" id="modalPhotoInput" accept="image/*">
+      </div>
+
+      <div class="player-form">
+        <input type="text" id="modalId" hidden>
+        <div class="f span-4"><label>Aadhaar</label><input type="text" id="modalAadhar"></div>
+        <div class="f span-5"><label>Name</label><input type="text" id="modalNameInput"></div>
+        <div class="f span-3"><label>Age</label><input type="number" id="modalAge"></div>
+        <div class="f span-4"><label>Country</label><input type="text" id="modalCountry"></div>
+        <div class="f span-12"><label>Bio</label><textarea id="modalBio"></textarea></div>
+        <div class="f span-12"><label>Video URL</label><input type="text" id="modalVideo"></div>
+        <div class="span-12" id="modalStats"></div>
+
+        <div class="modal-actions">
+          <button id="modalSaveBtn">💾 Save</button>
+          <button id="modalCancelBtn">❌ Cancel</button>
+          <button id="modalDeleteBtn">🗑 Delete</button>
+          <button id="modalPrevBtn">⬅ Prev</button>
+          <button id="modalNextBtn">➡ Next</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+<script src="db.js"></script>
+
+<script>
+/* Bracket tournament — clean rewritten script
+   - Single local IndexedDB: 'bracketDB'
+   - Stores: 'players', 'tournaments'
+   - Uses async/await, robust error handling
+   - Replace your prior <script> block with this
+*/
+
+(async function(){
+
+/* ======== Config ======== */
+const DB_NAME = 'bracketDB';
+const DB_VERSION = 1;
+const STORES = { players: 'players', tournaments: 'tournaments' };
+
+const CATEGORIES = [
+  'Boys U9','Girls U9','Boys U11','Girls U11','Boys U13','Girls U13',
+  'Boys U15','Girls U15','Boys U17','Girls U17','Boys U19','Girls U19',
+  'Men','Women','Batch 1','Batch 2','Batch 3','Batch 4','Batch 5','Batch 6'
+];
+
+/* ======== IndexedDB wrapper ======== */
+let _db = null;
+
+async function openDB(){
+  if(_db) return _db;
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = (ev) => {
+      const db = ev.target.result;
+      if(!db.objectStoreNames.contains(STORES.players)){
+        const s = db.createObjectStore(STORES.players, { keyPath: 'id', autoIncrement: true });
+        s.createIndex('by_category', 'category', { unique: false });
+        s.createIndex('by_name_cat', ['name','category'], { unique: false });
+      }
+      if(!db.objectStoreNames.contains(STORES.tournaments)){
+        db.createObjectStore(STORES.tournaments, { keyPath: 'category' });
+      }
+    };
+    req.onsuccess = () => { _db = req.result; resolve(_db); };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function storeTx(storeName, mode='readonly'){
+  if(!_db) throw new Error('DB not opened');
+  return _db.transaction(storeName, mode).objectStore(storeName);
+}
+
+async function idbListPlayers(category){
+  await openDB();
+  return new Promise((res, rej) => {
+    try {
+      const out = [];
+      const store = storeTx(STORES.players);
+      const idx = store.index('by_category');
+      const r = idx.openCursor(IDBKeyRange.only(category));
+      r.onsuccess = (e) => {
+        const cur = e.target.result;
+        if(cur){ out.push(cur.value); cur.continue(); }
+        else res(out);
+      };
+      r.onerror = () => rej(r.error);
+    } catch(err){ rej(err); }
+  });
+}
+
+async function idbAddPlayer(p){
+  await openDB();
+  return new Promise((res, rej) => {
+    try{
+      const r = storeTx(STORES.players, 'readwrite').add(p);
+      r.onsuccess = e => res(e.target.result);
+      r.onerror = () => rej(r.error);
+    }catch(err){ rej(err); }
+  });
+}
+async function idbPutPlayer(p){
+  await openDB();
+  return new Promise((res, rej) => {
+    try{
+      const r = storeTx(STORES.players, 'readwrite').put(p);
+      r.onsuccess = () => res();
+      r.onerror = () => rej(r.error);
+    }catch(err){ rej(err); }
+  });
+}
+async function idbDelPlayer(id){
+  await openDB();
+  return new Promise((res, rej) => {
+    try{
+      const r = storeTx(STORES.players, 'readwrite').delete(id);
+      r.onsuccess = () => res();
+      r.onerror = () => rej(r.error);
+    }catch(err){ rej(err); }
+  });
+}
+
+async function idbSaveTournament(category, data){
+  await openDB();
+  return new Promise((res, rej) => {
+    try{
+      const r = storeTx(STORES.tournaments, 'readwrite').put({ category, data });
+      r.onsuccess = () => res();
+      r.onerror = () => rej(r.error);
+    }catch(err){ rej(err); }
+  });
+}
+async function idbLoadTournament(category){
+  await openDB();
+  return new Promise((res, rej) => {
+    try{
+      const r = storeTx(STORES.tournaments).get(category);
+      r.onsuccess = e => res(e.target.result ? e.target.result.data : null);
+      r.onerror = () => rej(r.error);
+    }catch(err){ rej(err); }
+  });
+}
+
+
+// ===== Global PlayerPage DB =====
+const GLOBAL_DB_NAME = 'PlayerDB';
+const GLOBAL_STORE = 'players';
+
+async function openGlobalDB(){
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(GLOBAL_DB_NAME, 1);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if(!db.objectStoreNames.contains(GLOBAL_STORE)){
+        db.createObjectStore(GLOBAL_STORE, { keyPath: 'id' });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function saveToGlobalPlayers(p){
+  const db = await openGlobalDB();
+  return new Promise((res,rej)=>{
+    const tx = db.transaction(GLOBAL_STORE,'readwrite')
+                 .objectStore(GLOBAL_STORE).put(p);
+    tx.onsuccess = () => res();
+    tx.onerror = () => rej(tx.error);
+  });
+}
+
+
+
+
+/* ======== App state & helpers ======== */
+const S = {
+  players: [],
+  entries: [],
+  rounds: [],
+  stats: new Map(),
+  meta: { name:'', date:'', mode:'singles', format:'single', category:'' }
+};
+
+const q = id => document.getElementById(id);
+const el = (t, cls, style) => { const n = document.createElement(t); if(cls) n.className = cls; if(style) Object.assign(n.style, style); return n; };
+const esc = s => String(s || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+/* UI refs — verify these exist in your HTML; if not adjust IDs */
+const board = q('board');
+let svg = q('lines');
+const statsBody = q('statsBody');
+
+const modeSel = q('mode'), formatSel = q('format');
+const tName = q('tName'), tDate = q('tDate'), title = q('title');
+const playerName = q('playerName'), addBtn = q('addBtn');
+const bulk = q('bulk'), bulkBtn = q('bulkBtn'), clearBtn = q('clearBtn');
+const count = q('count'), shuffle = q('shuffle');
+const buildBtn = q('buildBtn'), resetBtn = q('resetBtn'), printBtn = q('printBtn');
+const exportBtn = q('exportBtn'), importBtn = q('importBtn'), importFile = q('importFile');
+const categorySel = q('category');
+const saveDbBtn = q('saveDbBtn'), loadDbBtn = q('loadDbBtn');
+
+const togglePlayersBtn = q('togglePlayersBtn');
+const closeSidebarBtn = q('closeSidebarBtn');
+const playerSidebar = q('playerSidebar');
+
+/* Defensive checks (if IDs missing, create placeholders to avoid runtime crash) */
+if(!board) console.warn('Element with id="board" not found. UI will not render bracket.');
+if(!svg) {
+  // try to create an inline svg if missing
+  if(board){
+    const s = document.createElementNS('http://www.w3.org/2000/svg','svg');
+    s.id = 'lines';
+    board.appendChild(s);
+    svg = s;
+  }
+}
+
+/* Category select population */
+function buildCategorySelect(){
+  if(!categorySel) return;
+  categorySel.innerHTML = '';
+  CATEGORIES.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c; opt.textContent = c;
+    categorySel.appendChild(opt);
+  });
+}
+
+function setCategory(c){
+  S.meta.category = c;
+  if(categorySel) categorySel.value = c;
+  updateTitle();
+}
+
+function updateTitle(){
+  if(!title) return;
+  const date = S.meta.date || new Date().toISOString().slice(0,10);
+  const cat = S.meta.category ? ` • ${S.meta.category}` : '';
+  title.textContent = `🏸 ${S.meta.name || 'Tournament'} (${date})${cat}`;
+}
+
+/* Render players in sidebar */
+function updateCount(){
+  if(count) count.textContent = `${S.players.length} player${S.players.length===1 ? '' : 's'}`;
+  const list = q('playerList');
+  if(!list) return;
+  list.innerHTML = '';
+  S.players.forEach((p, i) => {
+    const card = el('div','player-card');
+    const img = el('img'); img.src = p.photo || 'default.png'; img.style.width='44px'; img.style.height='44px'; img.style.objectFit='cover';
+    const info = el('div','player-info');
+    const name = el('div','player-name'); name.textContent = p.name || '(no name)';
+    const meta = el('div','player-meta');
+    const st = S.stats.get(p.name) || {P:0,W:0,L:0,PF:0,PA:0};
+    meta.textContent = `${p.category || ''}${p.category ? ' • ' : ''}${p.country || ''}${p.age ? ' • Age ' + p.age : ''} • P:${st.P} W:${st.W}`;
+
+    info.appendChild(name); info.appendChild(meta);
+
+    const del = el('button','btn'); del.textContent='❌';
+    del.onclick = async (ev) => {
+      ev.stopPropagation();
+      if(!confirm('Delete player?')) return;
+      if(p.id) await idbDelPlayer(p.id).catch(()=>{});
+      S.players.splice(i,1);
+      updateCount(); renderStats(); autosave();
+    };
+
+    card.appendChild(img); card.appendChild(info); card.appendChild(del);
+    card.onclick = () => showPlayerDetails(p, i);
+    list.appendChild(card);
+  });
+}
+
+/* Show modal to edit a player */
+let currentPlayerIndex = -1;
+function showPlayerDetails(p, idx){
+  currentPlayerIndex = idx;
+  const modal = q('playerModal');
+  if(!modal) { console.warn('playerModal missing'); return; }
+  // fill fields
+  q('modalId').value = p.id || '';
+  q('modalAadhar').value = p.aadhar || '';
+  q('modalNameInput').value = p.name || '';
+  q('modalAge').value = p.age || '';
+  q('modalCountry').value = p.country || '';
+  q('modalBio').value = p.bio || '';
+  q('modalVideo').value = (p.videos && p.videos[0]) || '';
+  q('modalPhoto').src = p.photo || 'default.png';
+
+  const stats = S.stats.get(p.name) || {P:0,W:0,L:0,PF:0,PA:0};
+  const modalStats = q('modalStats');
+  if(modalStats) modalStats.innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <tr><td>Played</td><td>${stats.P}</td></tr>
+      <tr><td style="color:var(--win)">Wins</td><td>${stats.W}</td></tr>
+      <tr><td style="color:var(--loss)">Losses</td><td>${stats.L}</td></tr>
+      <tr><td>Points For</td><td>${stats.PF}</td></tr>
+      <tr><td>Points Against</td><td>${stats.PA}</td></tr>
+      <tr><td>± Diff</td><td>${stats.PF - stats.PA}</td></tr>
+    </table>
+  `;
+
+  // photo input
+  const photoInput = q('modalPhotoInput');
+  if(photoInput){
+    photoInput.value = '';
+    photoInput.onchange = () => {
+      const f = photoInput.files[0];
+      if(!f) return;
+      const rd = new FileReader();
+      rd.onload = async e => {
+        S.players[idx].photo = e.target.result;
+        q('modalPhoto').src = e.target.result;
+        updateCount(); renderStats();
+        try{ await idbPutPlayer({...S.players[idx], category: S.meta.category}); }catch(_){}
+        autosave();
+      };
+      rd.readAsDataURL(f);
+    };
+  }
+
+  // save handler
+  q('modalSaveBtn').onclick = async () => {
+    const oldName = S.players[idx].name;
+    const newName = q('modalNameInput').value.trim() || oldName;
+
+    const updated = {
+      ...S.players[idx],
+      id: q('modalId').value || S.players[idx].id,
+      aadhar: q('modalAadhar').value.trim(),
+      name: newName,
+      age: q('modalAge').value.trim(),
+      country: q('modalCountry').value.trim(),
+      bio: q('modalBio').value.trim(),
+      videos: [q('modalVideo').value.trim()],
+      category: S.meta.category,
+      photo: q('modalPhoto').src || S.players[idx].photo || ''
+    };
+    S.players[idx] = updated;
+    try{ await idbPutPlayer(updated); }catch(err){ console.warn('idbPutPlayer failed',err); }
+    if(newName !== oldName){ migrateStatsName(oldName, newName); renameEverywhere(oldName, newName); }
+    updateCount(); renderStats(); autosave();
+    modal.classList.add('hidden');
+  };
+
+  q('modalCancelBtn').onclick = () => modal.classList.add('hidden');
+  const closer = modal.querySelector('.close');
+  if(closer) closer.onclick = () => modal.classList.add('hidden');
+  modal.onclick = (e) => { if(e.target === modal) modal.classList.add('hidden'); };
+
+  q('modalDeleteBtn').onclick = async () => {
+    if(!confirm('Delete this player?')) return;
+    if(p.id) await idbDelPlayer(p.id).catch(()=>{});
+    S.players.splice(idx,1);
+    updateCount(); renderStats(); autosave();
+    modal.classList.add('hidden');
+  };
+
+  q('modalPrevBtn').disabled = (idx <= 0);
+  q('modalNextBtn').disabled = (idx >= S.players.length - 1);
+  q('modalPrevBtn').onclick = () => { if(idx>0) showPlayerDetails(S.players[idx-1], idx-1); };
+  q('modalNextBtn').onclick = () => { if(idx < S.players.length-1) showPlayerDetails(S.players[idx+1], idx+1); };
+
+  modal.classList.remove('hidden');
+  modal.classList.add('open');
+}
+
+/* Stats helpers */
+function migrateStatsName(oldName, newName){
+  if(oldName === newName) return;
+  const old = S.stats.get(oldName);
+  if(!old) return;
+  const tgt = S.stats.get(newName);
+  if(tgt){
+    tgt.P += old.P; tgt.W += old.W; tgt.L += old.L; tgt.PF += old.PF; tgt.PA += old.PA;
+    S.stats.set(newName, tgt);
+  } else {
+    S.stats.set(newName, old);
+  }
+  S.stats.delete(oldName);
+}
+
+function renameEverywhere(oldName, newName){
+  if(Array.isArray(S.entries)) {
+    for(let i=0;i<S.entries.length;i++) if(S.entries[i] === oldName) S.entries[i] = newName;
+  }
+  const boxes = board ? board.querySelectorAll('.box') : [];
+  boxes.forEach(b => {
+    if(b.dataset.name === oldName){
+      b.dataset.name = newName;
+      const nm = b.querySelector('.name');
+      if(nm) nm.textContent = newName;
+    }
+  });
+  if(Array.isArray(S.rounds)){
+    S.rounds.forEach(rnd => rnd.forEach(mo => {
+      if(mo && mo.card){
+        const lab = mo.card.querySelector('.lab');
+        if(lab) {
+          lab.textContent = `${mo.A?.dataset.name || '—'} vs ${mo.B?.dataset.name || '—'}`;
+          lab.title = lab.textContent;
+        }
+      }
+    }));
+  }
+}
+
+/* Utility shuffle */
+function shuffleArr(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } }
+
+/* Geometry constants (keep them consistent) */
+const BW = 180, BH = 48, CG = 180, RG = 28;
+const cy = t => t + BH/2;
+
+/* ===== Players add / bulk / clear ===== */
+addBtn.onclick = async () => {
+  const v = playerName.value.trim();
+  if (!v) return;
+
+  const p = { name: v, category: S.meta.category };
+
+  try {
+    // Save into Bracket DB
+    p.id = await idbAddPlayer(p);
+
+    // Also save into global PlayerPage DB
+    const playerObj = {
+      id: p.id || crypto.randomUUID(),
+      name: p.name,
+      age: 0,
+      aadhar: "",
+      country: "",
+      state: "",
+      district: "",
+      category: p.category,
+      hand: "N/A",
+      photo: ""
+    };
+
+    await saveToGlobalPlayers(playerObj);   // ✅ global DB helper
+    new BroadcastChannel("tournament-sync")
+      .postMessage({ type: "playerAdded", player: playerObj });
+
+    console.log("Player synced to PlayerPage:", playerObj);
+  } catch (err) {
+    console.error("Add player failed", err);
+  }
+
+  S.players.push(p);
+  playerName.value = "";
+  updateCount();
+  autosave();
+};
+
+bulkBtn.onclick = async () => {
+  const names = bulk.value.split(/[,\r\n]+/).map(s => s.trim()).filter(Boolean);
+  if (!names.length) return;
+
+  for (const n of names) {
+    const p = { name: n, category: S.meta.category };
+
+    try {
+      // Save into Bracket DB
+      p.id = await idbAddPlayer(p);
+
+      // Also save into global PlayerPage DB
+      const playerObj = {
+        id: p.id || crypto.randomUUID(),
+        name: p.name,
+        age: 0,
+        aadhar: "",
+        country: "",
+        state: "",
+        district: "",
+        category: p.category,
+        hand: "N/A",
+        photo: ""
+      };
+
+      await saveToGlobalPlayers(playerObj);   // ✅ global DB helper
+      new BroadcastChannel("tournament-sync")
+        .postMessage({ type: "playerAdded", player: playerObj });
+
+      console.log("Bulk player synced to PlayerPage:", playerObj);
+
+      S.players.push(p);
+    } catch (err) {
+      console.error("Bulk add player failed", err);
+    }
+  }
+
+  bulk.value = "";
+  updateCount();
+  autosave();
+};
+
+
+
+
+if(clearBtn) clearBtn.onclick = async () => {
+  if(!confirm('Remove ALL players in this category?')) return;
+  const list = await idbListPlayers(S.meta.category);
+  for(const p of list) if(p.id) await idbDelPlayer(p.id).catch(()=>{});
+  S.players = []; updateCount(); autosave();
+};
+
+/* ===== Build / Reset / Print actions ===== */
+if(buildBtn) buildBtn.onclick = () => { buildFromPlayers(); };
+if(resetBtn) resetBtn.onclick = () => {
+  if(board) board.innerHTML = '<svg id="lines"></svg>';
+  svg = q('lines');
+  S.rounds = []; S.stats.clear(); S.entries = [];
+  if(statsBody) statsBody.innerHTML = '';
+  updateCount(); autosave();
+};
+if(printBtn) printBtn.onclick = () => window.print();
+
+/* ===== Build from players (round robin layout) ===== */
+function buildFromPlayers(){
+  if(S.players.length < 2){ alert('Add at least 2 entries'); return; }
+  S.meta.name = (tName && tName.value) || 'Tournament';
+  S.meta.date = (tDate && tDate.value) || new Date().toISOString().slice(0,10);
+  S.meta.mode = (modeSel && modeSel.value) || 'singles';
+  S.meta.format = (formatSel && formatSel.value) || 'single';
+  updateTitle();
+
+  let entries;
+  if(S.meta.mode === 'singles' || S.meta.mode === 'doubles'){
+    entries = S.players.map(p => p.name);
+    if(shuffle && shuffle.checked) shuffleArr(entries);
+  } else {
+    let singles = S.players.map(p => p.name);
+    if(shuffle && shuffle.checked) shuffleArr(singles);
+    if(singles.length % 2 === 1) singles.push('BYE');
+    entries = [];
+    for(let i=0;i<singles.length;i+=2) entries.push(`${singles[i]} & ${singles[i+1]}`);
+  }
+
+  entries = padToPowerOfTwo(entries);
+  S.stats.clear();
+  entries.filter(n => n !== 'BYE').forEach(n => S.stats.set(n, {P:0,W:0,L:0,PF:0,PA:0}));
+  S.entries = entries;
+
+  if(board) board.innerHTML = '<svg id="lines"></svg>';
+  svg = q('lines');
+  layout(entries);
+  resizeSVG(); renderStats(); autosave();
+}
+
+function padToPowerOfTwo(players){
+  let n = players.length, p = 1;
+  while(p < n) p <<= 1;
+  if(p === n) return players;
+  const need = p - n; const filled = [...players];
+  for(let i=0;i<need;i++){ filled.splice(filled.length - (i*2 + 1), 0, 'BYE'); }
+  return filled;
+}
+
+/* ===== Layout & match mechanics (same as your original but cleaned) ===== */
+function layout(entries){
+  S.rounds = [];
+  const roundsCount = Math.log2(entries.length) | 0;
+  let prev = [];
+  // initial boxes
+  entries.forEach((ent, i) => prev.push(createBox(ent, 0, i*(BH+RG), false, false)));
+  for(let r=0;r<roundsCount;r++){
+    const curr = []; S.rounds[r] = [];
+    const isFinal = (r === roundsCount - 1);
+    for(let m=0; m<prev.length/2; m++){
+      const A = prev[2*m], B = prev[2*m+1];
+      const yA = cy(parseFloat(A.style.top)), yB = cy(parseFloat(B.style.top));
+      const midY = (yA + yB) / 2;
+      const ax = parseFloat(A.style.left) + BW, bx = parseFloat(B.style.left) + BW;
+      const tx = (r+1)*(BW+CG);
+      const jx = (ax + tx) / 2;
+      const hA = line(ax,yA,jx,yA), vU = line(jx,yA,jx,midY);
+      const hB = line(bx,yB,jx,yB), vL = line(jx,midY,jx,yB);
+      const hF = line(jx,midY,tx,midY);
+      const T = createBox('—', tx, midY - BH/2, false, isFinal);
+      curr.push(T);
+      const mo = { A, B, T, lines: { hA, vU, hB, vL, hF }, saved: false };
+
+      if(A.dataset.name === 'BYE' && B.dataset.name !== 'BYE'){ forwardWinner(mo, B.dataset.name, 0, 0, true); }
+      else if(B.dataset.name === 'BYE' && A.dataset.name !== 'BYE'){ forwardWinner(mo, A.dataset.name, 0, 0, true); }
+      else if(A.dataset.name === 'BYE' && B.dataset.name === 'BYE'){ /* skip */ }
+      else { mo.card = createScoreCard(`${A.dataset.name} vs ${B.dataset.name}`, T, mo); }
+
+      S.rounds[r].push(mo);
+    }
+    prev = curr;
+  }
+}
+
+function createBox(name,left,top,isBye=false,isChamp=false){
+  const b = el('div','box' + (isChamp ? ' champ' : ''), { left: left + 'px', top: top + 'px', width: BW + 'px', height: BH + 'px' });
+  const seed = el('div','seed'); seed.textContent = isChamp ? '🏆' : (name === 'BYE' ? '—' : '');
+  const nm = el('div','name' + (name === 'BYE' ? ' bye' : '')); nm.textContent = name;
+  b.dataset.name = name; b.appendChild(seed); b.appendChild(nm);
+  if(board) board.appendChild(b);
+  return b;
+}
+
+function line(x1,y1,x2,y2){
+  const L = document.createElementNS('http://www.w3.org/2000/svg','line');
+  L.setAttribute('x1', x1); L.setAttribute('y1', y1);
+  L.setAttribute('x2', x2); L.setAttribute('y2', y2);
+  L.setAttribute('class', 'edge');
+  if(svg) svg.appendChild(L);
+  return L;
+}
+
+function createScoreCard(label, T, mo){
+  const card = el('div','scorecard', { left: (parseFloat(T.style.left) + BW/2 + 16) + 'px', top: T.style.top });
+  const lab = el('span','lab'); lab.textContent = label; lab.title = label;
+  card.appendChild(lab);
+
+  const appendInputs = (count) => {
+    const inputs = [];
+    for(let i=0;i<count;i++){
+      const inp = el('input'); inp.type='number'; inp.min='0'; inp.step='1'; inp.style.width='56px';
+      card.appendChild(inp); inputs.push(inp);
+    }
+    return inputs;
+  };
+
+  if(S.meta.format === 'bo3'){
+    const inputs = appendInputs(6);
+    const save = el('button','btn'); save.textContent='Save';
+    card.appendChild(save);
+    if(board) board.appendChild(card);
+    save.onclick = () => {
+      const sets = [[inputs[0],inputs[1]],[inputs[2],inputs[3]],[inputs[4],inputs[5]]];
+      let wSets=0,lSets=0,pf=0,pa=0;
+      for(const [ai,bi] of sets){
+        const a = val(ai), b = val(bi);
+        if(a===null&&b===null) continue;
+        if(a===b){ alert('Set cannot be tied'); return; }
+        if(a===null||b===null){ alert('Fill both scores'); return; }
+        pf+=a; pa+=b; if(a>b) wSets++; else lSets++;
+      }
+      if(wSets<2 && lSets<2){ alert('Enter enough sets'); return; }
+      const winner = (wSets>=2) ? mo.A.dataset.name : mo.B.dataset.name;
+      forwardWinner(mo, winner, pf, pa, false);
+      disable([...inputs, save]);
+    };
+  } else {
+    const A = el('input'); A.type='number'; A.min='0'; A.step='1'; A.style.width='56px';
+    const B = el('input'); B.type='number'; B.min='0'; B.step='1'; B.style.width='56px';
+    const save = el('button','btn'); save.textContent='Save';
+    card.appendChild(A); card.appendChild(B); card.appendChild(save);
+    if(board) board.appendChild(card);
+    save.onclick = () => {
+      const a = val(A), b = val(B);
+      if(a===null || b===null || a===b){ alert('Enter valid non-tied scores'); return; }
+      const winner = (a>b) ? mo.A.dataset.name : mo.B.dataset.name;
+      forwardWinner(mo, winner, a, b, false);
+      disable([A,B,save]);
+    };
+  }
+
+  function val(i){ const v = (i.value || '').trim(); if(v==='') return null; const n = parseInt(v,10); return Number.isNaN(n) ? null : n; }
+  function disable(arr){ arr.forEach(x => x.disabled = true); mo.saved = true; autosave(); }
+
+  return card;
+}
+
+/* winner propagation */
+function forwardWinner(mo, winner, sa, sb, isBye, restoring=false){
+  const loser = (winner === mo.A.dataset.name) ? mo.B.dataset.name : mo.A.dataset.name;
+  if(mo.T){
+    mo.T.dataset.name = winner;
+    const nm = mo.T.querySelector('.name'); if(nm) nm.textContent = winner;
+  }
+  const { hA, vU, hB, vL, hF } = mo.lines;
+  if(winner === mo.A.dataset.name){
+    hA.classList.add('win'); vU.classList.add('win');
+    hB.classList.add('loss'); vL.classList.add('loss');
+    hF.classList.add('win'); mo.A.classList.add('win');
+    if(mo.B.dataset.name !== 'BYE') mo.B.classList.add('loss');
+  } else {
+    hB.classList.add('win'); vL.classList.add('win');
+    hA.classList.add('loss'); vU.classList.add('loss');
+    hF.classList.add('win'); mo.B.classList.add('win');
+    if(mo.A.dataset.name !== 'BYE') mo.A.classList.add('loss');
+  }
+
+  if(!restoring){
+    if(!isBye && winner !== 'BYE' && loser !== 'BYE'){
+      const W = S.stats.get(winner) || { P:0,W:0,L:0,PF:0,PA:0 };
+      const L = S.stats.get(loser) || { P:0,W:0,L:0,PF:0,PA:0 };
+      W.P++; W.W++; W.PF += Math.max(sa,sb); W.PA += Math.min(sa,sb);
+      L.P++; L.L++; L.PF += Math.min(sa,sb); L.PA += Math.max(sa,sb);
+      S.stats.set(winner, W); S.stats.set(loser, L);
+    } else if(isBye && winner !== 'BYE'){
+      const W = S.stats.get(winner) || { P:0,W:0,L:0,PF:0,PA:0 }; S.stats.set(winner, W);
+    }
+    renderStats(); autosave();
+  }
+
+  // update any later scorecard labels
+  for(const rnd of S.rounds){
+    for(const node of rnd){
+      if(node.card && (node.A === mo.T || node.B === mo.T)){
+        const text = `${node.A.dataset.name} vs ${node.B.dataset.name}`;
+        const lab = node.card.querySelector('.lab');
+        if(lab){ lab.textContent = text; lab.title = text; }
+      }
+    }
+  }
+
+  // if not used later -> champion
+  let usedLater=false;
+  for(const rnd of S.rounds){
+    for(const node of rnd){
+      if(node !== mo && (node.A === mo.T || node.B === mo.T)){ usedLater=true; break; }
+    }
+    if(usedLater) break;
+  }
+  if(!usedLater){
+    sprinkleConfetti(mo.T);
+    mo.T.classList.add('champ');
+    autosave();
+  }
+}
+
+/* render stats table */
+function renderStats(){
+  if(!statsBody) return;
+  statsBody.innerHTML = '';
+  const sorted = [...S.stats.entries()].sort((a,b) => (b[1].W - a[1].W) || ((b[1].PF - b[1].PA) - (a[1].PF - a[1].PA)) || (b[1].PF - a[1].PF));
+  sorted.forEach(([name, s], i) => {
+    const tr = el('tr'); tr.innerHTML = `<td>${i+1}</td><td>${esc(name)}</td><td>${s.P}</td><td class="win">${s.W}</td><td class="loss">${s.L}</td><td>${s.PF}</td><td>${s.PA}</td><td>${s.PF - s.PA}</td>`;
+    statsBody.appendChild(tr);
+  });
+}
+
+/* adjust svg dims */
+function resizeSVG(){
+  if(!svg || !board) return;
+  const boxes = board.querySelectorAll('.box');
+  if(!boxes.length){ svg.setAttribute('width',1200); svg.setAttribute('height',800); return; }
+  let maxX = 0, maxY = 0;
+  boxes.forEach(b => {
+    const x = parseFloat(b.style.left) + BW;
+    const y = parseFloat(b.style.top) + BH;
+    if(x > maxX) maxX = x;
+    if(y > maxY) maxY = y;
+  });
+  svg.setAttribute('width', Math.max(800, maxX + 80));
+  svg.setAttribute('height', Math.max(600, maxY + 80));
+}
+
+/* confetti */
+function sprinkleConfetti(box){
+  if(!board) return;
+  const rect = box.getBoundingClientRect(), off = board.getBoundingClientRect();
+  const x = rect.left - off.left + rect.width/2;
+  const y = rect.top - off.top + rect.height/2;
+  for(let i=0;i<18;i++){
+    const c = el('div','confetti', { left: (x + (Math.random()*40 - 20)) + 'px', top: y + 'px', background: `hsl(${Math.random()*360},80%,60%)` });
+    c.style.position='absolute'; c.style.width='8px'; c.style.height='8px';
+    board.appendChild(c); setTimeout(()=>c.remove(), 2800);
+  }
+}
+
+/* ===== Export / Import ===== */
+if(exportBtn) exportBtn.onclick = () => {
+  const data = stringifyState();
+  const blob = new Blob([data], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${S.meta.name || 'tournament'}.json`;
+  a.click();
+};
+
+if(importBtn) importBtn.onclick = () => { if(importFile) importFile.click(); };
+if(importFile) importFile.onchange = e => {
+  const f = e.target.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = ev => {
+    try {
+      const o = JSON.parse(ev.target.result);
+      restoreFromObject(o); autosave();
+    } catch(err){ alert('Bad file'); }
+  };
+  r.readAsText(f);
+};
+
+function stringifyState(){
+  const rounds = S.rounds.map(rnd => rnd.map(mo => ({
+    A: mo.A?.dataset.name, B: mo.B?.dataset.name, T: mo.T?.dataset.name,
+    winner: mo.T?.dataset.name, saved: mo.saved || false,
+    scores: mo.card ? [...mo.card.querySelectorAll('input')].map(i => i.value) : null
+  })));
+  return JSON.stringify({ players: S.players, entries: S.entries, meta: S.meta, stats: [...S.stats], rounds }, null, 2);
+}
+
+function restoreFromObject(o){
+  S.players = Array.isArray(o.players) ? o.players.map(p => ({ ...p, category: o.meta?.category || S.meta.category })) : [];
+  S.entries = Array.isArray(o.entries) ? o.entries : [];
+  S.meta = Object.assign({ mode:'singles', format:'single', category: S.meta.category }, o.meta || {});
+  S.stats = new Map(o.stats || []);
+  if(tName) tName.value = S.meta.name || '';
+  if(tDate) tDate.value = S.meta.date || '';
+  if(modeSel) modeSel.value = S.meta.mode || 'singles';
+  if(formatSel) formatSel.value = S.meta.format || 'single';
+  setCategory(S.meta.category || (categorySel && categorySel.value));
+  updateCount(); renderStats();
+
+  if(S.entries.length >= 2){
+    if(board) board.innerHTML = '<svg id="lines"></svg>';
+    svg = q('lines');
+    layout(S.entries);
+    if(o.rounds) {
+      // attempt to re-apply saved winners/scores
+      S.rounds.forEach((rnd, i) => {
+        rnd.forEach((mo, j) => {
+          const saved = o.rounds[i]?.[j];
+          if(!saved) return;
+          if(saved.winner && saved.winner !== 'BYE') forwardWinner(mo, saved.winner, 0, 0, true, true);
+          if(saved.scores && mo.card){
+            const inputs = mo.card.querySelectorAll('input');
+            saved.scores.forEach((val, idx) => { if(inputs[idx]) inputs[idx].value = val; });
+            if(saved.saved) { inputs.forEach(inp => inp.disabled = true); const btn = mo.card.querySelector('button'); if(btn) btn.disabled = true; }
+          }
+        });
+      });
+    }
+    resizeSVG(); renderStats();
+  } else {
+    if(board) board.innerHTML = '<svg id="lines"></svg>';
+    svg = q('lines');
+    if(statsBody) statsBody.innerHTML = '';
+  }
+}
+
+/* ===== Persistence UI helpers ===== */
+if(saveDbBtn) saveDbBtn.onclick = async () => {
+  try{ await idbSaveTournament(S.meta.category, JSON.parse(stringifyState())); alert('Saved to IndexedDB ✔'); } catch(e){ alert('Save failed'); }
+};
+if(loadDbBtn) loadDbBtn.onclick = async () => {
+  const data = await idbLoadTournament(S.meta.category);
+  if(!data){ alert('Nothing saved for this category'); return; }
+  restoreFromObject(data);
+};
+
+/* autosave throttled */
+let _saveTimer = null;
+function autosave(){
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(async () => {
+    try{ await idbSaveTournament(S.meta.category, JSON.parse(stringifyState())); } catch(e){}
+  }, 500);
+}
+
+/* ===== Load players for category ===== */
+async function loadCategoryPlayers(){
+  try{
+    const list = await idbListPlayers(S.meta.category || (categorySel && categorySel.value));
+    S.players = Array.isArray(list) ? list : [];
+    updateCount();
+  }catch(err){
+    console.warn('idbListPlayers failed', err);
+    S.players = [];
+    updateCount();
+  }
+}
+
+/* ===== Init ===== */
+async function init(){
+  try{
+    console.log('Opening bracket DB...');
+    await openDB(); // ensures _db assigned
+    console.log('DB ready', _db);
+  }catch(err){
+    console.error('openDB failed', err);
+  }
+
+  buildCategorySelect();
+  setCategory(CATEGORIES[0] || (categorySel && categorySel.value));
+  if(categorySel) {
+    categorySel.onchange = async () => { setCategory(categorySel.value); await loadCategoryPlayers(); const saved = await idbLoadTournament(S.meta.category); if(saved) restoreFromObject(saved); else { if(resetBtn) resetBtn.click(); updateTitle(); } };
+  }
+
+  await loadCategoryPlayers();
+  const saved = await idbLoadTournament(S.meta.category);
+  if(saved) restoreFromObject(saved); else updateTitle();
+
+  // wire sidebar toggles if present
+  if(togglePlayersBtn) togglePlayersBtn.onclick = () => playerSidebar.classList.add('active');
+  if(closeSidebarBtn) closeSidebarBtn.onclick = () => playerSidebar.classList.remove('active');
+
+  // BroadcastChannel listener (optional) — reload players when other pages broadcast
+  try{
+    const channel = new BroadcastChannel('tournament-sync');
+    channel.onmessage = msg => {
+      if(msg.data?.type === 'playerAdded' || msg.data?.type === 'playerUpdated'){
+        loadCategoryPlayers().then(renderStats).catch(()=>{});
+      } else if(msg.data?.type === 'matchUpdated'){
+        idbLoadTournament(S.meta.category).then(data => { if(data) restoreFromObject(data); }).catch(()=>{});
+      }
+    };
+  }catch(_){}
+}
+
+await init(); // startup
+
+})(); // IIFE end
+</script>
+
+
+
+</body>
+</html>

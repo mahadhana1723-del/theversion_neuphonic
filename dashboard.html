@@ -37,6 +37,21 @@
   }
   .card h2{margin-bottom:12px;}
 
+  .scrolling-text {
+  white-space: nowrap;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+.scrolling-text span {
+  display: inline-block;
+  padding-left: 100%;
+  animation: scroll-left 15s linear infinite;
+}
+@keyframes scroll-left {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-100%); }
+}
+
   /* Table */
   table{width:100%;border-collapse:collapse;}
   th,td{padding:10px;text-align:center;}
@@ -53,12 +68,42 @@
   }
 
   @media(max-width:600px){ body{padding:10px;} }
+
+  .charts {
+
+    background:var(--card);
+    padding:16px;
+    margin-bottom:20px;
+    border-radius:var(--radius);
+    box-shadow:9px 9px 20px rgba(163,177,198,0.55),-9px -9px 20px rgba(255,255,255,0.9);
+ 
+
+  display: flex;               /* side by side layout */
+  gap: 20px;                   /* space between charts */
+       /* center align */
+  margin: 20px 0;
+}
+.chart-box {
+  width: 400px;                /* control chart width */
+  height: 300px;               /* control chart height */
+}
+canvas {
+  max-width: 100%;
+  max-height: 100%;
+}
+
 </style>
 <script src="db.js"></script>
 </head>
 <body>
 
 <h1>🏸 Dashboard</h1>
+
+<!-- Winners Ticker -->
+<div class="card">
+  <h2>🏆 Winners</h2>
+  <div id="winnersTicker" class="scrolling-text">Loading winners…</div>
+</div>
 
 <!-- KPI section -->
 <div class="kpi-grid">
@@ -91,6 +136,21 @@
   </table>
 </div>
 
+<div class="charts">
+  <h2>📊 Stats Overview</h2>
+  <div class="chart-box">
+    <canvas id="pieChart"></canvas>
+  </div>
+  <div class="chart-box">
+    <canvas id="barChart"></canvas>
+  </div>
+</div>
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <script>
 (async()=>{
   await openDB();
@@ -118,6 +178,56 @@ if(raw){
   }
 }
 document.getElementById("kpiAttendance").textContent=present;
+
+
+
+  // Winners Ticker
+const winners=document.getElementById("winnersTicker");
+const champions=matches.filter(m=>m.status==="completed" && m.winner);
+if(champions.length){
+  winners.innerHTML=`<span>${champions.map(m=>`${m.winner} 🏆`).join(" • ")}</span>`;
+}else{
+  winners.textContent="No winners yet";
+}
+
+
+// Pie: Wins distribution
+const ctxPie=document.getElementById("pieChart").getContext("2d");
+const wins={};
+matches.filter(m=>m.status==="completed").forEach(m=>{
+  wins[m.winner]=(wins[m.winner]||0)+1;
+});
+new Chart(ctxPie,{
+  type:"pie",
+  data:{
+    labels:Object.keys(wins),
+    datasets:[{
+      data:Object.values(wins),
+      backgroundColor:["#5b6cb7","#16a34a","#ef4444","#facc15","#a855f7"]
+
+    }]
+  }
+});
+
+// Bar: Matches per player
+const matchCount={};
+matches.forEach(m=>{
+  matchCount[m.player1]=(matchCount[m.player1]||0)+1;
+  matchCount[m.player2]=(matchCount[m.player2]||0)+1;
+});
+const ctxBar=document.getElementById("barChart").getContext("2d");
+new Chart(ctxBar,{
+  type:"bar",
+  data:{
+    labels:Object.keys(matchCount),
+    datasets:[{
+      label:"Matches Played",
+      data:Object.values(matchCount),
+      backgroundColor:"#355caa"
+    }]
+  },
+  options:{ responsive:true, plugins:{legend:{display:false}} }
+});
 
 
     // Live ticker

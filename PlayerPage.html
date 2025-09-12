@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>🏸 Player Manager</title>
+<script src="db.js"></script>
+<style>
+  :root{--bg:#e8eef7;--card:#fffdfd;--text:#203347;--muted:#6b5a86;--primary:#4b6cb7;--accent:#355caa;--radius:14px;}
+  body{background:var(--bg);font-family:system-ui,Segoe UI,Roboto,Arial;color:var(--text);padding:12px;}
+  h1{margin-bottom:12px}
+  .panel{background:var(--card);border-radius:var(--radius);padding:12px;margin-bottom:12px;
+    box-shadow:6px 6px 14px rgba(163,177,198,.4),-6px -6px 14px rgba(255,255,255,.8);}
+  input,select{width:100%;padding:8px;font-size:14px;margin:4px 0;border:none;border-radius:10px;
+    background:var(--card);box-shadow:inset 4px 4px 8px rgba(0,0,0,.08),inset -4px -4px 8px rgba(255,255,255,.8);}
+  .btn{border:none;border-radius:10px;padding:8px 12px;font-size:14px;margin:2px;cursor:pointer;
+    background:var(--card);box-shadow:4px 4px 8px rgba(0,0,0,.08),-4px -4px 8px rgba(255,255,255,.8);}
+  .btn.primary{background:linear-gradient(145deg,var(--primary),var(--accent));color:#fff;}
+  .player-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;max-height:70vh;overflow-y:auto;padding:4px;}
+  .card{background:var(--card);border-radius:var(--radius);padding:10px;text-align:center;transition:all .25s;
+    box-shadow:inset 4px 4px 8px rgba(0,0,0,.08),inset -4px -4px 8px rgba(255,255,255,.8);}
+  .card:hover{transform:translateY(-4px);box-shadow:6px 6px 14px rgba(0,0,0,.25),-6px -6px 14px rgba(255,255,255,.9);}
+  .avatar{width:60px;height:60px;border-radius:50%;background:#ddd;display:grid;place-items:center;font-weight:700;
+    margin:0 auto 6px;overflow:hidden;}
+  .avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+  .slide{max-height:0;overflow:hidden;transition:max-height .4s ease;}
+  .slide.show{max-height:1000px;}
+  /* Book popup */
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:none;align-items:center;justify-content:center;}
+  .book{display:flex;gap:2px;perspective:2000px;width:100%;max-width:700px;}
+  .page{flex:1;min-height:320px;background:linear-gradient(135deg,#fdfdfd,#e3f2fd);
+    border-radius:6px;padding:16px;box-shadow:0 6px 12px rgba(0,0,0,0.3);
+    transform-origin:center;transition:transform 0.6s ease;}
+  .page.turn{transform:rotateY(-180deg);}
+  .page h3{color:var(--primary);margin-top:0;}
+</style>
+</head>
+<body>
+<h1>🏸 Player Manager</h1>
+
+<!-- Top controls -->
+<div class="panel">
+  <button class="btn primary" onclick="toggleForm(true)">＋ Add Player</button>
+  <button class="btn" onclick="exportPlayers()">Export</button>
+  <button class="btn" onclick="importFile.click()">Import</button>
+  <input id="importFile" type="file" accept="application/json" style="display:none">
+  <button class="btn" onclick="clearAll()">Clear All</button>
+  <input id="searchBar" placeholder="Search player..." style="margin-top:6px">
+</div>
+
+<!-- Hidden form -->
+<div class="panel slide" id="formPanel">
+  <h3 id="formTitle">Register Player</h3>
+  <input id="pId" placeholder="Player ID (leave empty = auto)">
+  <input id="pName" placeholder="Full Name *">
+  <input id="pAge" type="number" placeholder="Age *">
+  <input id="pAadhar" placeholder="Aadhaar Number *">
+  <input id="pPhoto" type="file" accept="image/*">
+  <input id="pCountry" placeholder="Country *">
+  <input id="pState" placeholder="State *">
+  <input id="pDistrict" placeholder="District *">
+  <input id="pCategory" placeholder="Category *">
+  <select id="pHand"><option value="">Select Handedness *</option><option>Right</option><option>Left</option></select>
+  <button class="btn primary" id="saveBtn" onclick="savePlayer()">Save</button>
+  <button class="btn" onclick="toggleForm(false)">Cancel</button>
+</div>
+
+<!-- Player grid -->
+<div class="player-list" id="playerList"></div>
+
+<!-- Book Popup -->
+<div class="modal" id="bookModal">
+  <div class="book">
+    <div class="page" id="leftPage"></div>
+    <div class="page" id="rightPage"></div>
+  </div>
+  <div style="margin-top:10px;text-align:center">
+    <button class="btn" onclick="prevPage()">⬅ Prev</button>
+    <button class="btn primary" onclick="nextPage()">Next ➡</button>
+    <button class="btn" onclick="closeBook()">Close</button>
+  </div>
+</div>
+
+<script>
+let players = [];
+let editIndex = null;
+let currentIndex = 0;
+
+const GLOBAL_DB_NAME = "PlayerDB";
+const GLOBAL_STORE = "players";
+
+
+/* ================== IndexedDB Wrappers ================== */
+async function openGlobalDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open("PlayerDB", 1);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains("players")) {
+        db.createObjectStore("players", { keyPath: "id" });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function getAll(storeName) {
+  const db = await openGlobalDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, "readonly").objectStore(storeName).getAll();
+    tx.onsuccess = (e) => resolve(e.target.result);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function put(storeName, obj) {
+  const db = await openGlobalDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, "readwrite").objectStore(storeName).put(obj);
+    tx.onsuccess = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function del(storeName, id) {
+  const db = await openGlobalDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, "readwrite").objectStore(storeName).delete(id);
+    tx.onsuccess = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+/* ================== INIT ================== */
+(async()=>{
+  // మొదట PlayerDB నుండి load చెయ్యండి
+  players = await getAll("players");
+  render();
+
+  // ✅ Broadcast sync listener
+  const channel = new BroadcastChannel("tournament-sync");
+  channel.onmessage = async (e) => {
+    if (e.data.type === "playerAdded" || e.data.type === "playerUpdated") {
+      console.log("PlayerPage received sync:", e.data.player);
+      players = await getAll("players");
+      render(document.getElementById("searchBar")?.value || "");
+    }
+    if (e.data.type === "playerDeleted") {
+      console.log("PlayerPage received delete sync:", e.data.id);
+      players = await getAll("players");
+      render(document.getElementById("searchBar")?.value || "");
+    }
+  };
+})();
+
+
+
+/* ================== RENDER ================== */
+function render(filter=""){
+  const list=document.getElementById("playerList"); 
+  list.innerHTML="";
+  players
+    .filter(p=>p.name.toLowerCase().includes(filter.toLowerCase()))
+    .forEach((p,i)=>{
+      const div=document.createElement("div"); 
+      div.className="card";
+      const imgHtml=p.photo?`<img src="${p.photo}">`:`${(p.name||"?").charAt(0)}`;
+      div.innerHTML=`<div class="avatar">${imgHtml}</div><b>${p.name}</b><br>
+        <small>${p.age} yrs · ${p.country}</small><br>
+        <button class="btn" onclick="openBook(${i})">View</button>
+        <button class="btn" onclick="removePlayer(${i})">Delete</button>`;
+      list.appendChild(div);
+    });
+}
+
+/* ================== CRUD ================== */
+function toggleForm(show){
+  document.getElementById("formPanel").classList.toggle("show",show);
+  if(!show) clearForm();
+}
+
+function clearForm(){
+  document.querySelectorAll("#pId,#pName,#pAge,#pAadhar,#pCountry,#pState,#pDistrict,#pCategory").forEach(el=>el.value="");
+  document.getElementById("pPhoto").value="";
+  document.getElementById("pHand").value="";
+  editIndex=null;
+  document.getElementById("formTitle").textContent="Register Player";
+}
+
+async function savePlayer(){
+  let id=document.getElementById("pId").value.trim();
+  const name=document.getElementById("pName").value.trim();
+  const age=document.getElementById("pAge").value.trim();
+  const aadhar=document.getElementById("pAadhar").value.trim();
+  const photoFile=document.getElementById("pPhoto").files[0];
+  const country=document.getElementById("pCountry").value.trim();
+  const state=document.getElementById("pState").value.trim();
+  const district=document.getElementById("pDistrict").value.trim();
+  const category=document.getElementById("pCategory").value.trim();
+  const hand=document.getElementById("pHand").value;
+
+  if(!name||!age||!aadhar||!country||!state||!district||!category||!hand){ 
+    return alert("All fields required!"); 
+  }
+  if(!id) id=crypto.randomUUID();
+  let photo=""; 
+  if(photoFile) photo=await toBase64(photoFile);
+
+  const player={id,name,age:Number(age),aadhar,photo,country,state,district,category,hand};
+  await put("players",player); 
+  players=await getAll("players"); 
+  render(); 
+  toggleForm(false);
+}
+
+function toBase64(f){ 
+  return new Promise((res,rej)=>{ 
+    const r=new FileReader(); 
+    r.onload=()=>res(r.result); 
+    r.onerror=rej; 
+    r.readAsDataURL(f); 
+  }); 
+}
+
+async function removePlayer(i){
+  await del("players",players[i].id); 
+  players=await getAll("players"); 
+  render();
+}
+
+/* ================== BOOK VIEW ================== */
+function openBook(i){
+  currentIndex=i%players.length;
+  showPages();
+  document.getElementById("bookModal").style.display="flex";
+}
+function closeBook(){
+  document.getElementById("bookModal").style.display="none";
+}
+function showPages(){
+  const left=document.getElementById("leftPage"), right=document.getElementById("rightPage");
+  const p1=players[currentIndex], p2=players[currentIndex+1];
+  left.innerHTML=p1?formatPlayer(p1):"<em>Empty</em>";
+  right.innerHTML=p2?formatPlayer(p2):"<em>Empty</em>";
+}
+function formatPlayer(p){
+  return `<h3>${p.name}</h3>
+  <p>${p.age} yrs · ${p.country}, ${p.state}, ${p.district}</p>
+  <p><b>Aadhaar:</b> ${p.aadhar}</p>
+  <p><b>Category:</b> ${p.category}</p>
+  <p><b>Hand:</b> ${p.hand}</p>
+  <div class="avatar" style="margin:10px auto">${p.photo?`<img src="${p.photo}">`:p.name[0]}</div>`;
+}
+function nextPage(){
+  const left=document.getElementById("leftPage"), right=document.getElementById("rightPage");
+  left.classList.add("turn"); right.classList.add("turn");
+  setTimeout(()=>{
+    currentIndex=(currentIndex+2)%players.length;
+    showPages();
+    left.classList.remove("turn"); right.classList.remove("turn");
+  },600);
+}
+function prevPage(){
+  const left=document.getElementById("leftPage"), right=document.getElementById("rightPage");
+  left.classList.add("turn"); right.classList.add("turn");
+  setTimeout(()=>{
+    currentIndex=(currentIndex-2+players.length)%players.length;
+    showPages();
+    left.classList.remove("turn"); right.classList.remove("turn");
+  },600);
+}
+
+/* ================== Extras ================== */
+async function exportPlayers(){
+  const data=JSON.stringify(players,null,2);
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([data],{type:"application/json"}));
+  a.download="players.json"; a.click();
+}
+
+document.getElementById("importFile").onchange=async e=>{
+  const f=e.target.files[0];
+  if(!f) return;
+  const text=await f.text();
+  const arr=JSON.parse(text);
+  if(Array.isArray(arr)){
+    for(const p of arr){
+      if(!p.id) p.id=crypto.randomUUID();
+      await put("players",p);
+    }
+    players=await getAll("players"); render();
+  }
+};
+
+async function clearAll(){
+  if(!confirm("Delete all players?")) return;
+  for(const p of players) await del("players",p.id);
+  players=[]; render();
+}
+
+document.getElementById("searchBar").oninput=e=>render(e.target.value);
+
+</script>
+
+</body>
+</html>
