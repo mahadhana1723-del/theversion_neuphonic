@@ -474,7 +474,7 @@ header.hidden { display: none !important; }
   <h1 id="title">🏸 Badminton Knockout</h1>
   
   <!-- Menu button for mobile -->
-  <button class="btn" id="menuToggle">☰ Menu</button>
+ 
 
   <!-- Controls -->
   <div class="controls" id="controlsPanel">
@@ -1470,7 +1470,23 @@ async function init(){
 
 await init(); // startup
 
+
 })(); // IIFE end
+// ===== Header Toggle =====
+const toggleHeaderBtn = document.getElementById("toggleHeaderBtn");
+const header = document.querySelector("header");
+
+if (toggleHeaderBtn && header) {
+  toggleHeaderBtn.onclick = () => {
+    header.classList.toggle("hidden");
+    toggleHeaderBtn.textContent = header.classList.contains("hidden")
+      ? "Show Header"
+      : "Hide Header";
+  };
+}
+
+
+
 </script>
 
 
