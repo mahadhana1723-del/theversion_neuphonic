@@ -90,19 +90,33 @@ table.matches th,table.stats th{
   z-index: 150; padding:12px;
 }
 #playerSidebar.active { transform: translateX(0); }
-@media (max-width: 600px) {
+@media (max-width: 768px) {
   #playerSidebar {
     top: 0;
     left: 0;
-    width: 100%;
+    width: 80%;
     height: 100%;
-    border-radius: 0;
+    border-radius: 0 12px 12px 0;
   }
 }
 #playerSidebar .btn {
   position: absolute; top: 10px; right: 10px;
   padding: 4px 8px; font-size: 12px;
 }
+
+
+#sidebarOverlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.4);
+  z-index: 140;
+}
+#sidebarOverlay.active {
+  display: block;
+}
+
 
 /* Player mini-cards */
 .player-card {
@@ -129,7 +143,7 @@ table.matches th,table.stats th{
 
 /* Toggle header button */
 #toggleHeaderBtn {
-  position: fixed; top: 10px; right: 10px; z-index: 200;
+  position: fixed; bottom: 10px; right: 10px; z-index: 200;
   background: linear-gradient(90deg,var(--accent),var(--win));
   border: none; border-radius: 8px;
   padding: 6px 12px; color: #fff;
@@ -255,6 +269,8 @@ table.matches th,table.stats th{
     </div>
     <div id="playerList"></div>
   </div>
+  <div id="sidebarOverlay"></div>
+
 
   <main>
     <div class="board">
@@ -552,6 +568,26 @@ on(genderSelect, 'change', () => {
   // ---------- Sidebar toggle ----------
   on(togglePlayersBtn, 'click', () => playerSidebar.classList.add('active'));
   on(closeSidebarBtn,  'click', () => playerSidebar.classList.remove('active'));
+
+
+  const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+on(togglePlayersBtn, 'click', () => {
+  playerSidebar.classList.add('active');
+  sidebarOverlay.classList.add('active');
+});
+
+on(closeSidebarBtn, 'click', () => {
+  playerSidebar.classList.remove('active');
+  sidebarOverlay.classList.remove('active');
+});
+
+on(sidebarOverlay, 'click', () => {
+  playerSidebar.classList.remove('active');
+  sidebarOverlay.classList.remove('active');
+});
+
+
 
   // ---------- Players ----------
 on(addBtn, 'click', async () => {
