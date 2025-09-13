@@ -152,6 +152,43 @@ table.matches th,table.stats th{
 }
 
 
+@media (max-width: 768px) {
+  main {
+    display: block; /* stack matches and stats vertically */
+  }
+
+  .board, aside {
+    width: 100%;
+    margin-bottom: 14px;
+    height: auto;
+  }
+
+  table.matches, table.stats {
+    font-size: 11px;       /* smaller text */
+    width: 100%;           /* fit container */
+    table-layout: fixed;   /* force columns to shrink */
+  }
+
+  table.matches th, table.matches td,
+  table.stats th, table.stats td {
+    padding: 3px 4px;      /* compact padding */
+    word-wrap: break-word; /* allow text to wrap */
+    white-space: normal;   /* no horizontal scrolling */
+  }
+
+  /* Make input boxes & buttons smaller */
+  table.matches input[type="number"] {
+    width: 40px;
+    font-size: 11px;
+    padding: 2px;
+  }
+
+  table.matches button {
+    font-size: 11px;
+    padding: 3px 6px;
+  }
+}
+
 
 </style>
 </head>
@@ -221,11 +258,15 @@ table.matches th,table.stats th{
 
   <main>
     <div class="board">
-      <h2 id="matchesTitle">Matches</h2>
-      <table class="matches" id="matchesTable"></table>
-    </div>
+  <h2 id="matchesTitle">Matches</h2>
+  <div class="table-container">
+    <table class="matches" id="matchesTable"></table>
+  </div>
+</div>
+
 
 <aside>
+  <div class="table-container">
   <h3>Stats</h3>
   <table class="stats">
     <thead>
@@ -235,7 +276,7 @@ table.matches th,table.stats th{
     </thead>
     <tbody id="statsBody"></tbody>
   </table>
-
+  </div>
       <!-- 🔑 Player Details goes here -->
      <div id="playerDetails" class="card" style="margin-top:12px;">
     <p>Select a player from the sidebar…</p>
