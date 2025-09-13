@@ -137,6 +137,21 @@ table.matches th,table.stats th{
   box-shadow: var(--shadow-light);
 }
 
+/* Matches table round grouping */
+.round-header {
+  background: var(--panel-2);
+  font-weight: bold;
+  text-align: left;
+}
+
+.matches tr.round-even td {
+  background: #f9fbff; /* light tint */
+}
+.matches tr.round-odd td {
+  background: #eef3fa; /* slightly different tint */
+}
+
+
 
 </style>
 </head>
@@ -574,6 +589,24 @@ on(bulkBtn, 'click', async () => {
 });
 
 
+  on(clearBtn, 'click', () => {
+  const st = getState();
+  if (!st.players.length) {
+    alert("No players to clear.");
+    return;
+  }
+  if (!confirm("Are you sure you want to remove all players and matches for this category?")) return;
+
+  st.players = [];
+  st.matches = [];
+  st.stats = new Map();
+
+  renderAll();
+  saveDB();
+});
+
+
+
   function updateCount() {
     const st = getState();
     count.textContent = `${st.players.length} player${st.players.length === 1 ? '' : 's'}`;
@@ -677,31 +710,35 @@ on(buildBtn, 'click', () => {
     return;
   }
 
-  if (st.matches.length === 0) {
-    // 🆕 First time build
-    st.matches = generateRoundRobin(names);
-  } else {
-    // 🆕 Extend matches for new players only
-    const existingPlayers = new Set();
-    st.matches.forEach(m => { existingPlayers.add(m.a); existingPlayers.add(m.b); });
-
-    const newPlayers = names.filter(n => !existingPlayers.has(n));
-
-    newPlayers.forEach(newP => {
-      for (const oldP of existingPlayers) {
-        if (oldP !== "BYE" && newP !== "BYE") {
-          st.matches.push({ a: newP, b: oldP, sa:"", sb:"", saved:false, round: st.matches.length+1 });
-        }
-      }
-      existingPlayers.add(newP);
-    });
+  // backup old scores
+  const scoreMap = new Map();
+  for (const m of st.matches) {
+    if (m.saved) {
+      scoreMap.set(m.a + "_" + m.b, { sa: m.sa, sb: m.sb });
+    }
   }
 
+  // 🔁 rebuild full round robin with new players
+  const newMatches = generateRoundRobin(names);
+
+  // restore old scores
+  for (const m of newMatches) {
+    const key = m.a + "_" + m.b;
+    if (scoreMap.has(key)) {
+      const sc = scoreMap.get(key);
+      m.sa = sc.sa;
+      m.sb = sc.sb;
+      m.saved = true;
+    }
+  }
+
+  st.matches = newMatches;
   recomputeStats();
   renderMatches();
   renderStats();
   saveDB();
 });
+
 
 
   on(resetBtn, 'click', () => {
@@ -747,8 +784,17 @@ on(buildBtn, 'click', () => {
     let idx = 1;
 
     for (const [rnd, arr] of [...byRound.entries()].sort((a,b)=>a[0]-b[0])) {
+      
+      
+       // add a visible header row per round
+    html += `
+      <tr class="round-header"><td colspan="6">Round ${rnd}</td></tr>
+    `;
+      
+      
       for (const m of arr) {
         const rowId = `m_${rnd}_${idx}`;
+
         html += `
           <tr data-row="${rowId}">
             <td>${idx}</td>
@@ -797,8 +843,12 @@ on(buildBtn, 'click', () => {
 
 
            // 🔑 Save into global DB
-  put("matches", {mid: m.round+"_"+m.a+"_"+m.b, p1:m.a, p2:m.b, s1:na, s2:nb, status:"completed", date:new Date().toISOString().slice(0,10)})
-    .then(() => broadcast("matchUpdated", m));
+          put("matches", {
+            mid: m.round+"_"+m.a+"_"+m.b,
+            p1:m.a, p2:m.b, s1:na, s2:nb,
+            status:"completed",
+            date:new Date().toISOString().slice(0,10)
+          }).then(() => broadcast("matchUpdated", m));
         };
 
         rowIdx++;
