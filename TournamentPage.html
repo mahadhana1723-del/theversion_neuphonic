@@ -90,6 +90,19 @@ table.matches th,table.stats th{
   z-index: 150; padding:12px;
 }
 #playerSidebar.active { transform: translateX(0); }
+@media (max-width: 600px) {
+  #playerSidebar {
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+  }
+}
+#playerSidebar .btn {
+  position: absolute; top: 10px; right: 10px;
+  padding: 4px 8px; font-size: 12px;
+}
 
 /* Player mini-cards */
 .player-card {
@@ -655,19 +668,41 @@ on(bulkBtn, 'click', async () => {
 }
 
 
-  on(buildBtn, 'click', () => {
-    const st = getState();
-    const names = st.players.map(p => p.name).filter(Boolean);
-    if (names.length < 2) {
-      alert('Add at least 2 players');
-      return;
-    }
+on(buildBtn, 'click', () => {
+  const st = getState();
+  const names = st.players.map(p => p.name).filter(Boolean);
+
+  if (names.length < 2) {
+    alert('Add at least 2 players');
+    return;
+  }
+
+  if (st.matches.length === 0) {
+    // 🆕 First time build
     st.matches = generateRoundRobin(names);
-    recomputeStats();
-    renderMatches();
-    renderStats();
-    saveDB();
-  });
+  } else {
+    // 🆕 Extend matches for new players only
+    const existingPlayers = new Set();
+    st.matches.forEach(m => { existingPlayers.add(m.a); existingPlayers.add(m.b); });
+
+    const newPlayers = names.filter(n => !existingPlayers.has(n));
+
+    newPlayers.forEach(newP => {
+      for (const oldP of existingPlayers) {
+        if (oldP !== "BYE" && newP !== "BYE") {
+          st.matches.push({ a: newP, b: oldP, sa:"", sb:"", saved:false, round: st.matches.length+1 });
+        }
+      }
+      existingPlayers.add(newP);
+    });
+  }
+
+  recomputeStats();
+  renderMatches();
+  renderStats();
+  saveDB();
+});
+
 
   on(resetBtn, 'click', () => {
     const st = getState();
