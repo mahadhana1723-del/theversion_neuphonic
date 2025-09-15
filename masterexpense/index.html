@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Expense Tracker — All-in-One</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      :root {
+        --bg: #f9fbfd;
+        --card: #ffffff;
+        --accent: #4f8ef7;
+        --accent-light: #eaf2ff;
+        --text: #2d2d2d;
+        --muted: #707070;
+        --success: #2ecc71;
+        --danger: #e74c3c;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family: "Inter", sans-serif;
+      }
+
+      body {
+        background: var(--bg);
+        color: var(--text);
+        padding: 1rem;
+        line-height: 1.5;
+      }
+      h1 {
+        text-align: center;
+        margin-bottom: 1rem;
+        font-weight: 700;
+        color: var(--accent);
+      }
+      h2,
+      h3 {
+        text-align: center;
+        margin: 1rem 0;
+      }
+
+      .container {
+        max-width: 1000px;
+        margin: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+      .card {
+        background: var(--card);
+        padding: 1.5rem;
+        border-radius: 1rem;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+      }
+
+      .summary {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        justify-content: space-between;
+        align-items: stretch;
+      }
+      .summary div {
+        flex: 1 1 200px;
+        text-align: center;
+        padding: 1rem;
+        border-radius: 0.75rem;
+        color: white;
+      }
+
+      .income {
+        background: #2ecc71 !important;
+      }
+      .expense {
+        background: #e74c3c !important;
+      }
+      .balance {
+        background: #4f8ef7 !important;
+      }
+      .credit-card-summary {
+      }
+
+      form {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-bottom: 1rem;
+      }
+      input,
+      select,
+      button {
+        padding: 0.75rem;
+        border: 1px solid #ddd;
+        border-radius: 0.5rem;
+        font-size: 1rem;
+      }
+      input,
+      select {
+        flex: 1;
+      }
+      button {
+        background: var(--accent);
+        color: white;
+        font-weight: 600;
+        cursor: pointer;
+        transition: 0.3s;
+      }
+      button:hover {
+        background: #3a73d9;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1rem;
+        background: white;
+      }
+      th,
+      td {
+        padding: 0.75rem;
+        border-bottom: 1px solid #eee;
+        text-align: center;
+      }
+      th {
+        background: var(--accent-light);
+        color: var(--accent);
+        font-weight: 600;
+      }
+
+      .actions button {
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        margin: 0 0.25rem;
+      }
+      .actions .edit {
+        color: var(--accent);
+      }
+      .actions .delete {
+        color: var(--danger);
+      }
+
+      .controls {
+        text-align: center;
+        margin: 10px 0;
+      }
+      .controls button {
+        margin: 0 5px;
+      }
+
+      .chart-row {
+        display: flex;
+        gap: 20px;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin: 20px 0;
+      }
+      .chart-row canvas {
+        width: 280px !important;
+        height: 220px !important;
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        padding: 10px;
+      }
+
+      /* Daily section header */
+      .day-header {
+        color: white;
+        font-weight: bold;
+        text-align: left;
+        padding: 6px 10px;
+      }
+      .day-header-0 {
+        background-color: #f06292;
+      }
+      .day-header-1 {
+        background-color: #64b5f6;
+      }
+      .day-header-2 {
+        background-color: #81c784;
+      }
+      .day-header-3 {
+        background-color: #ffd54f;
+      }
+      .day-header-4 {
+        background-color: #9575cd;
+      }
+      .day-header-5 {
+        background-color: #4dd0e1;
+      }
+      .day-header-6 {
+        background-color: #dce775;
+      }
+
+      @media (max-width: 600px) {
+        form {
+          flex-direction: column;
+        }
+        .summary {
+          flex-direction: column;
+        }
+        .chart-row {
+          flex-direction: column;
+          align-items: center;
+        }
+        .chart-row canvas {
+          width: 95% !important;
+          height: 250px !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <h1>💸 Expense Tracker</h1>
+    <div class="container">
+      <!-- Summary -->
+      <div class="card summary" id="summaryPanel">
+        <div class="income">
+          <h2 id="income">₹0</h2>
+          <p>Income</p>
+        </div>
+        <div class="expense">
+          <h2 id="expense">₹0</h2>
+          <p>Expenses</p>
+        </div>
+        <div class="balance">
+          <h2 id="balance">₹0</h2>
+          <p>Balance</p>
+        </div>
+      </div>
+
+      <!-- Add Transaction Form -->
+      <div class="card">
+        <form id="transactionForm">
+          <input type="text" id="desc" placeholder="Description" required />
+          <input type="number" id="amount" placeholder="Amount" required />
+          <select id="type">
+            <option value="income">Income</option>
+            <option value="expense">Expense</option>
+            <option value="credit">Credit Card</option>
+          </select>
+          <input
+            type="text"
+            id="creditCard"
+            placeholder="Credit Card Name (if any)"
+          />
+          <input type="date" id="dateInput" />
+          <button type="submit">Add</button>
+        </form>
+
+        <div class="controls">
+          <button onclick="exportData()">Export CSV</button>
+          <button onclick="resetData()">Reset Data</button>
+          <input
+            type="file"
+            id="fileInput"
+            accept=".csv"
+            onchange="importData(event)"
+          />
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Description</th>
+              <th>Amount</th>
+              <th>Type</th>
+              <th>Credit Card</th>
+              <th>Date</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="transactions"></tbody>
+        </table>
+      </div>
+
+      <!-- Charts -->
+      <h3>Dashboard</h3>
+      <div class="chart-row">
+        <canvas id="pieChart"></canvas>
+        <canvas id="barChart"></canvas>
+        <canvas id="lineChart"></canvas>
+      </div>
+    </div>
+
+    <script>
+      const form = document.getElementById("transactionForm");
+      const transactionsEl = document.getElementById("transactions");
+      const incomeEl = document.getElementById("income");
+      const expenseEl = document.getElementById("expense");
+      const balanceEl = document.getElementById("balance");
+      const summaryPanel = document.getElementById("summaryPanel");
+
+      let transactions = JSON.parse(localStorage.getItem("transactions")) || [];
+      const cardColors = [
+        "#9b59b6",
+        "#f39c12",
+        "#1abc9c",
+        "#8e44ad",
+        "#16a085",
+        "#d35400",
+      ];
+      const headerColors = [
+        "day-header-0",
+        "day-header-1",
+        "day-header-2",
+        "day-header-3",
+        "day-header-4",
+        "day-header-5",
+        "day-header-6",
+      ];
+
+      function updateSummary(filteredTx = transactions) {
+        let income = filteredTx
+          .filter((t) => t.type === "income")
+          .reduce((sum, t) => sum + t.amount, 0);
+        let expense = filteredTx
+          .filter((t) => t.type === "expense")
+          .reduce((sum, t) => sum + t.amount, 0);
+        let creditCards = {};
+        filteredTx
+          .filter((t) => t.type === "credit")
+          .forEach((t) => {
+            creditCards[t.card || "Unnamed Card"] =
+              (creditCards[t.card || "Unnamed Card"] || 0) + t.amount;
+          });
+
+        const totalCredit = Object.values(creditCards).reduce(
+          (a, b) => a + b,
+          0
+        );
+
+        incomeEl.textContent = `₹${income}`;
+        expenseEl.textContent = `₹${expense + totalCredit}`;
+        balanceEl.textContent = `₹${income - (expense + totalCredit)}`;
+
+        document
+          .querySelectorAll(".credit-card-summary")
+          .forEach((el) => el.remove());
+
+        let i = 0;
+        for (const [card, amount] of Object.entries(creditCards)) {
+          const div = document.createElement("div");
+          div.className = "credit-card-summary";
+          div.style.backgroundColor = cardColors[i % cardColors.length];
+          div.innerHTML = `<h2>₹${amount}</h2><p>${card}</p>`;
+          summaryPanel.appendChild(div);
+          i++;
+        }
+
+        updateCharts(income, expense, creditCards);
+      }
+
+      function renderTransactions() {
+        transactionsEl.innerHTML = "";
+        let lastDate = "";
+        let dayIndex = -1;
+        transactions.forEach((t, index) => {
+          if (t.date !== lastDate) {
+            dayIndex = (dayIndex + 1) % headerColors.length;
+            lastDate = t.date;
+            const headerRow = document.createElement("tr");
+            headerRow.className = headerColors[dayIndex] + " day-header";
+            const headerCell = document.createElement("td");
+            headerCell.colSpan = 6;
+            headerCell.textContent = `📅 ${t.date}`;
+            headerRow.appendChild(headerCell);
+            transactionsEl.appendChild(headerRow);
+          }
+          const row = document.createElement("tr");
+          row.innerHTML = `
+          <td>${t.desc}</td>
+          <td>${t.amount}</td>
+          <td>${t.type}</td>
+          <td>${t.card || "-"}</td>
+          <td>${t.date}</td>
+          <td class="actions">
+            <button class="edit" onclick="editTransaction(${index})">✏️</button>
+            <button class="delete" onclick="deleteTransaction(${index})">🗑️</button>
+          </td>
+        `;
+          transactionsEl.appendChild(row);
+        });
+        updateSummary(transactions);
+      }
+
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const desc = document.getElementById("desc").value;
+        const amount = parseFloat(document.getElementById("amount").value);
+        const type = document.getElementById("type").value;
+        const card = document.getElementById("creditCard").value;
+        const dateInput = document.getElementById("dateInput").value;
+        const date = dateInput
+          ? new Date(dateInput).toLocaleDateString()
+          : new Date().toLocaleDateString();
+        transactions.push({ desc, amount, type, card, date });
+        localStorage.setItem("transactions", JSON.stringify(transactions));
+        form.reset();
+        renderTransactions();
+      });
+
+      function deleteTransaction(index) {
+        transactions.splice(index, 1);
+        localStorage.setItem("transactions", JSON.stringify(transactions));
+        renderTransactions();
+      }
+
+      function editTransaction(index) {
+        const t = transactions[index];
+        document.getElementById("desc").value = t.desc;
+        document.getElementById("amount").value = t.amount;
+        document.getElementById("type").value = t.type;
+        document.getElementById("creditCard").value = t.card || "";
+        document.getElementById("dateInput").value = new Date(t.date)
+          .toISOString()
+          .split("T")[0];
+        deleteTransaction(index);
+      }
+
+      function exportData() {
+        const rows = [["Description", "Amount", "Type", "Credit Card", "Date"]];
+        transactions.forEach((t) =>
+          rows.push([t.desc, t.amount, t.type, t.card || "", t.date])
+        );
+        const csv = rows.map((r) => r.join(",")).join("\n");
+        const blob = new Blob([csv], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "transactions.csv";
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+
+      function importData(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          const lines = e.target.result.split("\n").slice(1);
+          transactions = [];
+          lines.forEach((line) => {
+            if (line.trim() === "") return;
+            const [desc, amount, type, card, date] = line.split(",");
+            transactions.push({
+              desc,
+              amount: parseFloat(amount),
+              type,
+              card,
+              date,
+            });
+          });
+          localStorage.setItem("transactions", JSON.stringify(transactions));
+          renderTransactions();
+        };
+        reader.readAsText(file);
+      }
+
+      function resetData() {
+        if (confirm("Are you sure you want to reset all data?")) {
+          transactions = [];
+          localStorage.removeItem("transactions");
+          renderTransactions();
+        }
+      }
+
+      let pieChart, barChart, lineChart;
+      function updateCharts(income, expense, creditCards) {
+        const labels = ["Income", "Expense", ...Object.keys(creditCards)];
+        const data = [income, expense, ...Object.values(creditCards)];
+
+        if (pieChart) pieChart.destroy();
+        if (barChart) barChart.destroy();
+        if (lineChart) lineChart.destroy();
+
+        const bgColors = ["#2ecc71", "#e74c3c", ...cardColors];
+
+        pieChart = new Chart(document.getElementById("pieChart"), {
+          type: "pie",
+          data: {
+            labels,
+            datasets: [
+              { data, backgroundColor: bgColors.slice(0, labels.length) },
+            ],
+          },
+          options: { plugins: { legend: { position: "bottom" } } },
+        });
+
+        barChart = new Chart(document.getElementById("barChart"), {
+          type: "bar",
+          data: {
+            labels,
+            datasets: [
+              {
+                label: "Overview",
+                data,
+                backgroundColor: bgColors.slice(0, labels.length),
+              },
+            ],
+          },
+          options: { responsive: true, scales: { y: { beginAtZero: true } } },
+        });
+
+        lineChart = new Chart(document.getElementById("lineChart"), {
+          type: "line",
+          data: {
+            labels,
+            datasets: [
+              {
+                label: "Trend",
+                data,
+                borderColor: "#4f8ef7",
+                backgroundColor: "rgba(79,142,247,0.2)",
+                fill: true,
+                tension: 0.3,
+              },
+            ],
+          },
+          options: { responsive: true, scales: { y: { beginAtZero: true } } },
+        });
+      }
+
+      renderTransactions();
+    </script>
+  </body>
+</html>
