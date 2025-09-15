@@ -1,1081 +1,535 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-<meta charset="UTF-8" />
-<title>Practice Round Robin — Multi‑Category</title>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-
-<style>
-:root{
-  --bg:#fdf4ff; 
-  --panel:#ffffff; 
-  --panel-2:#f9f5ff;
-  --muted:#6b5a86; 
-  --text:#2d103f;
-  --accent:#d946ef; /* Pink */
-  --win:#22c55e;    /* Violet */
-  --loss:#ef4444;
-  --neutral:#7b88a8; 
-}
-
-*{box-sizing:border-box}
-body{
-  margin:0; color:var(--text);
-  font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial;
-  background:var(--bg);
-}
-
-/* Header */
-header{
-  position:sticky; top:0; z-index:5; padding:12px 14px;
-  border-bottom:1px solid #e5e0eb;
-  display:flex; flex-wrap:wrap; gap:10px; align-items:center;
-  background:
-    radial-gradient(1200px 320px at 15% -10%, rgba(217,70,239,.15), transparent),
-    radial-gradient(1000px 320px at 85% 110%, rgba(147,51,234,.12), transparent),
-    linear-gradient(90deg,#fdf4ff,#f9f5ff);
-  box-shadow:0 2px 6px rgba(0,0,0,.08);
-}
-h1{margin:0 6px 0 0; font-size:18px; letter-spacing:.2px}
-.controls{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
-
-input,textarea,select{
-  padding:6px 10px; border-radius:10px;
-  border:1px solid #e5e0eb; background:#fff; color:var(--text)
-}
-textarea{width:220px; height:60px}
-.btn{
-  padding:6px 10px; border-radius:10px;
-  border:1px solid #e5e0eb; background:#f9f5ff; color:var(--text); cursor:pointer
-}
-.btn.primary{
-  background:linear-gradient(90deg,var(--accent),var(--win));
-  border-color:transparent; color:#fff
-}
-.legend{font-size:12px; color:var(--muted); margin-left:4px}
-
-/* Layout */
-main{display:grid; grid-template-columns:1fr 320px; gap:14px; padding:14px}
-.board{
-  border:1px solid #e5e0eb; border-radius:14px;
-  background:var(--panel-2); padding:14px; overflow:auto
-}
-
-table.matches{width:100%; border-collapse:collapse; margin-top:8px}
-table.matches th,table.matches td{
-  border:1px solid #e5e0eb; padding:6px 8px; font-size:13px
-}
-table.matches th{background:#f9f5ff; color:var(--muted)}
-table.matches td input{width:56px;text-align:center}
-
-aside{
-  border:1px solid #e5e0eb; border-radius:14px;
-  background:var(--panel-2); padding:10px;
-  position:sticky; top:82px; height:calc(100vh - 110px); overflow:auto
-}
-aside h3{margin:6px 6px 10px; font-size:16px}
-table.stats{width:100%; border-collapse:separate; border-spacing:0 6px}
-th,td{font-size:12px; padding:6px 8px; text-align:left}
-th:first-child,td:first-child{text-align:left}
-th{background:#f9f5ff; color:var(--muted); position:sticky; top:0}
-tr{background:#fff; border:1px solid #e5e0eb}
-td.win{color:var(--win)} td.loss{color:var(--loss)}
-
-.champ{border:2px solid gold; color:gold}
-
-/* Player Sidebar */
-#playerSidebar {
-  position: fixed; top: 15%; left: 0;
-  height: 70%; width: 260px;
-  background: var(--panel);
-  border-radius: 0 12px 12px 0;
-  overflow-y: auto;
-  box-shadow: 2px 4px 12px rgba(0,0,0,0.15);
-  transform: translateX(-100%);
-  transition: transform 0.3s ease;
-  z-index: 150; padding:12px;
-}
-#playerSidebar.active { transform: translateX(0); }
-#playerSidebar .header {
-  position: sticky; top: 0; background: var(--panel);
-  padding: 8px 4px 10px;
-  display: flex; justify-content: space-between; align-items: center;
-  border-bottom: 1px solid #e5e0eb; z-index: 10;
-}
-#playerSidebar h3 { margin: 0; font-size: 16px; color: var(--text); }
-
-/* Player mini-cards */
-.player-card {
-  background: #f9f5ff;
-  border: 1px solid #e5e0eb;
-  border-radius: 12px;
-  padding: 10px; margin-bottom: 8px;
-  display: flex; align-items: center; gap: 10px;
-  cursor: pointer; transition: transform 0.2s, background 0.2s;
-}
-.player-card:hover { background: #fdf4ff; transform: translateY(-2px); }
-.player-card img {
-  width: 38px; height: 38px; border-radius: 50%;
-  object-fit: cover; border: 2px solid var(--accent);
-}
-.player-info { flex:1 }
-.player-name { font-size: 14px; font-weight: 600 }
-.player-meta { font-size: 12px; color: var(--muted) }
-.player-del {
-  background:#f3d1ff; color:#5b21b6; border:0;
-  border-radius:8px; padding:4px 8px; cursor:pointer
-}
-.player-del:hover { background:#ec4899; color:#fff }
-
-/* Modal */
-#playerModal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 200; }
-#playerModal.open { display: flex; }
-#playerModal .overlay { position:absolute; inset:0; background:rgba(0,0,0,.5) }
-#playerModal .modal-content {
-  position: relative; background: var(--panel);
-  border-radius: 20px; padding: 18px;
-  width: 720px; max-width: 92vw;
-  box-shadow: 0 18px 40px rgba(0,0,0,0.25);
-  z-index: 210;
-}
-.modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
-.modal-header h2{margin:0; font-size:18px}
-.modal-header .close{ background:none; border:0; color:var(--muted); cursor:pointer; font-size:22px; line-height:1 }
-.modal-header .close:hover{ color:var(--accent) }
-
-.player-editor{ display:grid; grid-template-columns: 180px 1fr; gap:16px }
-.player-avatar{
-  display:flex; flex-direction:column; align-items:center; gap:10px;
-  background:linear-gradient(145deg,#fdf4ff,#f9f5ff);
-  border-radius:16px; padding:12px;
-  box-shadow: inset 0 0 10px rgba(217,70,239,0.15);
-}
-.player-avatar img{
-  width:140px; height:140px; border-radius:50%; object-fit:cover;
-  border:3px solid var(--accent);
-  box-shadow:0 0 10px rgba(217,70,239,0.3);
-}
-.player-form{
-  display:grid; grid-template-columns: repeat(12, 1fr); gap:10px;
-  background:#fff; border:1px solid #e5e0eb;
-  border-radius:12px; padding:12px;
-}
-.f{display:flex; flex-direction:column; gap:6px}
-.f label{font-size:12px; color:var(--muted)}
-.f input, .f textarea{width:100%}
-.span-3{grid-column: span 3}
-.span-4{grid-column: span 4}
-.span-5{grid-column: span 5}
-.span-6{grid-column: span 6}
-.span-12{grid-column: 1 / -1}
-.modal-actions{ display:flex; gap:8px; justify-content:flex-end; margin-top:10px }
-
-/* Mobile */
-@media (max-width: 768px) {
-  header { flex-direction: column; align-items: flex-start; padding: 10px; gap: 8px; position: static; }
-  .controls { flex-direction: column; align-items: stretch; gap: 6px; width: 100%; }
-  .controls input, .controls select, .controls textarea, .controls button { width: 100%; max-width: 100%; }
-  main { display: block; padding: 10px; }
-  aside { position: static; height: auto; margin-top: 12px; }
-  .player-editor{ grid-template-columns: 1fr; }
-}
-
-/* Print */
-@media print {
-  header { display:none !important; }
-  body { background:#fff; color:#000; }
-  .board, aside { border:none !important; }
-  .board { background:#fff !important; }
-  table.matches th, table.matches td,
-  table.stats th, table.stats td {
-    border:1px solid #000 !important; color:#000 !important;
-  }
-}
-
-
-/* Toggle header button */
-#toggleHeaderBtn {
-  position: fixed;
-  top: 10px;
-  right: 10px;
-  z-index: 200;
-  background: linear-gradient(90deg,var(--accent),var(--win));
-  border: none;
-  border-radius: 8px;
-  padding: 6px 12px;
-  color: #fff;
-  font-size: 14px;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-}
-#toggleHeaderBtn:hover {
-  opacity: 0.9;
-}
-
-
-</style>
-</head>
-<body>
-
-    <button id="toggleHeaderBtn">Hide Header</button>
-
-
-  <header>
-    <button id="toggleHeaderBtn">Hide Header</button>
-    <h1>Tournament-Round Robin</h1>
-
-    <div class="controls">
-      <!-- Category + Gender -->
-      <label>Category</label>
-      <select id="categorySelect">
-        <option>U11</option><option>U13</option><option>U15</option><option>U17</option><option>U19</option>
-        <option>Men</option><option>Women</option>
-        <option>Batch1</option><option>Batch2</option><option>Batch3</option><option>Batch4</option><option>Batch5</option>
-      </select>
-      <div class="category-nav" style="margin:10px 0;">
-  <button id="prevCategoryBtn">⬅️ Prev Category</button>
-  <button id="nextCategoryBtn">➡️ Next Category</button>
-</div>
-      <label id="genderLabel">Gender</label>
-      <select id="genderSelect">
-        <option>Boys</option>
-        <option>Girls</option>
-      </select>
-
-      <span id="currentKeyTag" class="legend"></span>
-    </div>
-
-    <div class="controls">
-      <!-- Players quick add -->
-      <input id="playerName" placeholder="Player name" />
-      <button class="btn" id="addBtn">Add</button>
-
-      <textarea id="bulk" placeholder="Bulk add (one per line)"></textarea>
-      <button class="btn" id="bulkBtn">Bulk Add</button>
-      <button class="btn" id="clearBtn">Clear Players</button>
-
-      <span class="legend" id="count">0 players</span>
-    </div>
-
-    <div class="controls">
-      <!-- Matches + IO -->
-      <button class="btn primary" id="buildBtn">Generate Matches</button>
-      <button class="btn" id="resetBtn">Reset Matches</button>
-      <button class="btn" id="printBtn">Print</button>
-
-      <button class="btn" id="exportBtn">Export (All)</button>
-      <input type="file" id="importFile" accept="application/json" style="display:none" />
-      <button class="btn" id="importBtn">Import (All)</button>
-
-      <!-- Toggle sidebar -->
-      <button class="btn" id="togglePlayersBtn">Players Sidebar</button>
-    </div>
-  </header>
-
-  <!-- Slide-in Players Sidebar -->
-  <div id="playerSidebar">
-    <div class="header">
-      <h3>Players</h3>
-      <button class="btn" id="closeSidebarBtn">Close</button>
-    </div>
-    <div id="playerList"></div>
-  </div>
-
-  <main>
-    <div class="board">
-      <h2 id="matchesTitle">Matches</h2>
-      <table class="matches" id="matchesTable"></table>
-    </div>
-
-    <aside>
-      <h3>Stats</h3>
-      <table class="stats">
-        <thead>
-          <tr>
-            <th>#</th><th>Player</th><th>P</th><th class="win">W</th><th class="loss">L</th><th>PF</th><th>PA</th><th>±</th>
-          </tr>
-        </thead>
-        <tbody id="statsBody"></tbody>
-      </table>
-    </aside>
-  </main>
-
-  <!-- Player Modal -->
-  <div id="playerModal">
-    <div class="overlay" onclick="closeModal()"></div>
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2>Edit Player</h2>
-        <button class="close" id="modalX">&times;</button>
-      </div>
-
-      <div class="player-editor">
-        <!-- LEFT: photo -->
-        <div class="player-avatar">
-          <img id="modalPhoto" src="https://via.placeholder.com/160" alt="Player Photo">
-          <input type="file" id="modalPhotoInput" accept="image/*">
-        </div>
-
-        <!-- RIGHT: form -->
-        <div class="player-form">
-          <div class="f span-3"><label>ID</label><input id="modalId" type="text"></div>
-          <div class="f span-4"><label>Aadhaar</label><input id="modalAadhar" type="text"></div>
-          <div class="f span-5"><label>Name</label><input id="modalNameInput" type="text"></div>
-
-          <div class="f span-3"><label>Age</label><input id="modalAge" type="number" min="1"></div>
-          <div class="f span-4"><label>Country</label><input id="modalCountry" type="text"></div>
-          <div class="f span-5"><label>Video URL</label><input id="modalVideo" type="text" placeholder="https://..."></div>
-
-          <div class="f span-12"><label>Bio</label><textarea id="modalBio" rows="3"></textarea></div>
-
-          <div class="span-12">
-            <div id="modalStats" style="font-size:13px; line-height:1.6"></div>
-          </div>
-
-          <div class="span-12 modal-actions">
-            <button class="btn primary" id="modalSaveBtn">💾 Save</button>
-            <button class="btn" id="modalCancelBtn">❌ Cancel</button>
-            <button class="btn" id="modalDeleteBtn">🗑️ Delete</button>
-            <button class="btn" id="modalPrevBtn">⬅️ Prev</button>
-            <button class="btn" id="modalNextBtn">➡️ Next</button>
-          </div>
-        </div>
-      </div>
-
-    </div>
-  </div>
-
-
-  <script src="db.js"></script>
-
-
-<script>
-(() => {
-  // ---------- State per category/gender ----------
-  const TOURNAMENTS = {}; // { key: { players:[], matches:[], stats: Map(), meta:{} } }
-
-  // ---------- Quick DOM helpers ----------
-  const q = id => document.getElementById(id);
-  const esc = s => String(s).replace(/[&<>"']/g, m =>
-  ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])
-);
-
-  const on = (el, evt, fn) => el && el.addEventListener(evt, fn);
-
-  // ---------- UI refs ----------
-  const categorySelect = q('categorySelect');
-  const genderSelect   = q('genderSelect');
-  const genderLabel    = q('genderLabel');
-  const currentKeyTag  = q('currentKeyTag');
-
-  const playerName = q('playerName');
-  const addBtn     = q('addBtn');
-  const bulk       = q('bulk');
-  const bulkBtn    = q('bulkBtn');
-  const clearBtn   = q('clearBtn');
-  const count      = q('count');
-
-  const buildBtn   = q('buildBtn');
-  const resetBtn   = q('resetBtn');
-  const printBtn   = q('printBtn');
-  const exportBtn  = q('exportBtn');
-  const importBtn  = q('importBtn');
-  const importFile = q('importFile');
-
-  const togglePlayersBtn = q('togglePlayersBtn');
-  const closeSidebarBtn  = q('closeSidebarBtn');
-  const playerSidebar    = q('playerSidebar');
-  const playerList       = q('playerList');
-
-  const matchesTable = q('matchesTable');
-  const statsBody    = q('statsBody');
-  const matchesTitle = q('matchesTitle');
-
-  // Modal refs (select .close OR #modalX safely)
-  const modal            = q('playerModal');
-  const modalPhoto       = q('modalPhoto');
-  const modalPhotoInput  = q('modalPhotoInput');
-  const modalId          = q('modalId');
-  const modalAadhar      = q('modalAadhar');
-  const modalNameInput   = q('modalNameInput');
-  const modalAge         = q('modalAge');
-  const modalCountry     = q('modalCountry');
-  const modalVideo       = q('modalVideo');
-  const modalBio         = q('modalBio');
-  const modalStats       = q('modalStats');
-  const modalSaveBtn     = q('modalSaveBtn');
-  const modalCancelBtn   = q('modalCancelBtn');
-  const modalDeleteBtn   = q('modalDeleteBtn');
-  const modalPrevBtn     = q('modalPrevBtn');
-  const modalNextBtn     = q('modalNextBtn');
-
-  // This will match either a span/button with class "close" OR an element with id "modalX"
-  const modalX = modal ? modal.querySelector('.close, #modalX') : null;
-
-  // ---------- IndexedDB ----------
-  const DB_NAME = "TournamentDB";
-  const DB_STORE = "tournaments";
-  let db;
-
-
-  // ---------- Category Navigation (Prev/Next Buttons) ----------
-/* ---------- Category Navigation (Prev/Next Buttons) ---------- */
-const categories = [
-  "U11-Boys", "U11-Girls",
-  "U13-Boys", "U13-Girls",
-  "U15-Boys", "U15-Girls",
-  "U17-Boys", "U17-Girls",
-  "U19-Boys", "U19-Girls",
-  "Men", "Women",
-  "Batch1", "Batch2", "Batch3", "Batch4", "Batch5" // <-- capital B to match <select>
-];
-
-function getCategoryIndex() {
-  return categories.indexOf(getKey());
-}
-
-function maybeAutoBuild() {
-  const st = getState();
-  if (st.players.length >= 2 && st.matches.length === 0) {
-    st.matches = generateRoundRobin(st.players.map(p => p.name));
-    recomputeStats();
-    saveDB();
-  }
-}
-
-function setCategoryByIndex(i) {
-  if (i < 0 || i >= categories.length) return;
-  const parts = categories[i].split("-");
-  const cat = parts[0];
-  const gen = parts[1] || "";
-
-  categorySelect.value = cat;
-  if (gen) genderSelect.value = gen;
-
-  updateGenderVisibility();
-  updateKeyTag();
-  localStorage.setItem("lastCategoryKey", getKey());
-
-  // Auto-generate matches for this category if needed
-  maybeAutoBuild();
-  renderAll();
-}
-
-// Wire the buttons
-on(q("prevCategoryBtn"), "click", () => {
-  const i = getCategoryIndex();
-  if (i > 0) setCategoryByIndex(i - 1);
-});
-on(q("nextCategoryBtn"), "click", () => {
-  const i = getCategoryIndex();
-  if (i < categories.length - 1) setCategoryByIndex(i + 1);
-});
-
-
-
-
-  function openDB() {
-    return new Promise((resolve, reject) => {
-      const req = indexedDB.open(DB_NAME, 1);
-      req.onupgradeneeded = e => {
-        db = e.target.result;
-        if (!db.objectStoreNames.contains(DB_STORE)) {
-          db.createObjectStore(DB_STORE);
-        }
-      };
-      req.onsuccess = e => { db = e.target.result; resolve(db); };
-      req.onerror = e => reject(e);
-    });
-  }
-
- // --- Ensure DB is ready before saving ---
-function saveDB() {
-  if (!db) return;
-  const out = {};
-  for (const [k, v] of Object.entries(TOURNAMENTS)) {
-    out[k] = {
-      players: v.players,
-      matches: v.matches,
-      stats: Object.fromEntries(v.stats || new Map()),
-      meta: v.meta || {}
-    };
-  }
-  const tx = db.transaction(DB_STORE, "readwrite");
-  tx.objectStore(DB_STORE).put(JSON.stringify(out), "data");
-  tx.oncomplete = () => console.log("Saved to DB (Edge safe)");
-}
-
-  function loadDB() {
-    return new Promise(resolve => {
-      if (!db) return resolve();
-      const tx = db.transaction(DB_STORE, "readonly");
-      const req = tx.objectStore(DB_STORE).get("data");
-      req.onsuccess = e => {
-        if (e.target.result) {
-          try {
-            const parsed = JSON.parse(e.target.result);
-            for (const [k, v] of Object.entries(parsed)) {
-              TOURNAMENTS[k] = {
-                players: v.players || [],
-                matches: v.matches || [],
-                stats: new Map(Object.entries(v.stats || {})),
-                meta: v.meta || {}
-              };
-            }
-          } catch {}
-        }
-        resolve();
-      };
-      req.onerror = () => resolve();
-    });
-  }
-
-  // ---------- Category/Gender helpers ----------
-  function keyFrom(cat, gen) {
-    const isU = /^U\d+$/i.test(cat);
-    return isU ? `${cat}-${gen}` : cat;
-  }
-  function getKey() {
-    return keyFrom(categorySelect.value, genderSelect.value);
-  }
-  function getState() {
-    const k = getKey();
-    if (!TOURNAMENTS[k]) {
-      TOURNAMENTS[k] = { players: [], matches: [], stats: new Map(), meta: {} };
-    }
-    return TOURNAMENTS[k];
-  }
-  function updateGenderVisibility() {
-    const show = /^U\d+$/i.test(categorySelect.value);
-    genderLabel.style.display = show ? 'inline-block' : 'none';
-    genderSelect.style.display = show ? 'inline-block' : 'none';
-  }
-  function updateKeyTag() {
-    currentKeyTag.textContent = `Now editing: ${getKey()}`;
-  }
-
-  // Restore last selection
-  const lastKey = localStorage.getItem('lastCategoryKey');
-  if (lastKey) {
-    const [cat, sub] = lastKey.split('-');
-    categorySelect.value = cat || 'U11';
-    if (sub) genderSelect.value = sub;
-  } else {
-    categorySelect.value = 'U11';
-    genderSelect.value = 'Boys';
-  }
-  updateGenderVisibility();
-  updateKeyTag();
-
- on(categorySelect, 'change', () => {
-  saveDB();
-  updateGenderVisibility();
-  localStorage.setItem('lastCategoryKey', getKey());
-  updateKeyTag();
-  maybeAutoBuild();
-  renderAll();
-});
-
-on(genderSelect, 'change', () => {
-  saveDB();
-  localStorage.setItem('lastCategoryKey', getKey());
-  updateKeyTag();
-  maybeAutoBuild();
-  renderAll();
-});
-
-
-  // ---------- Sidebar toggle ----------
-  on(togglePlayersBtn, 'click', () => playerSidebar.classList.add('active'));
-  on(closeSidebarBtn,  'click', () => playerSidebar.classList.remove('active'));
-
-  // ---------- Players ----------
-  on(addBtn, 'click', () => {
-    const v = playerName.value.trim();
-    if (!v) return;
-    const st = getState();
-    st.players.push({ name: v, id:'', aadhar:'', age:'', country:'', bio:'', video:'', photo:'' });
-    playerName.value = '';
-    renderPlayersSidebar();
-    updateCount();
-    saveDB();
-  });
-
-  on(playerName, 'keydown', e => { if (e.key === 'Enter') addBtn.click(); });
-
-  on(bulkBtn, 'click', () => {
-    const names = bulk.value.split(/\r?\n|,/).map(s => s.trim()).filter(Boolean);
-    if (!names.length) return;
-    const st = getState();
-    names.forEach(n => st.players.push({ name: n, id:'', aadhar:'', age:'', country:'', bio:'', video:'', photo:'' }));
-    bulk.value = '';
-    renderPlayersSidebar();
-    updateCount();
-    saveDB();
-  });
-
-  on(clearBtn, 'click', () => {
-    if (!confirm('Clear all players in this tournament?')) return;
-    const st = getState();
-    st.players = [];
-    st.matches = [];
-    st.stats = new Map();
-    renderAll();
-    updateCount();
-    saveDB();
-  });
-
-  function updateCount() {
-    const st = getState();
-    count.textContent = `${st.players.length} player${st.players.length === 1 ? '' : 's'}`;
-    saveDB();
-  }
-
-  function renderPlayersSidebar() {
-    const st = getState();
-    playerList.innerHTML = '';
-    st.players.forEach((p, i) => {
-      const card = document.createElement('div');
-      card.className = 'player-card';
-
-      const img = document.createElement('img');
-      img.src = p.photo || 'https://via.placeholder.com/80';
-
-      const info = document.createElement('div');
-      info.className = 'player-info';
-      const nm = document.createElement('div');
-      nm.className = 'player-name';
-      nm.textContent = p.name || '(no name)';
-      const meta = document.createElement('div');
-      meta.className = 'player-meta';
-      const s = getStatsFor(p.name);
-      meta.textContent = `P:${s.P} • W:${s.W} • L:${s.L}`;
-
-      info.appendChild(nm);
-      info.appendChild(meta);
-
-      const del = document.createElement('button');
-      del.className = 'player-del';
-      del.textContent = '❌';
-      del.onclick = (e) => {
-        e.stopPropagation();
-        if (!confirm(`Delete ${p.name || 'this player'}?`)) return;
-        st.players.splice(i, 1);
-        // remove matches involving this player
-        st.matches = st.matches.filter(m => m.a !== p.name && m.b !== p.name);
-        recomputeStats();
-        renderAll();
-        saveDB();
-      };
-
-      card.appendChild(img);
-      card.appendChild(info);
-      card.appendChild(del);
-
-      card.onclick = () => showPlayerDetails(i);
-      playerList.appendChild(card);
-    });
-  }
-
-  // ---------- Matches (Round Robin) ----------
-  function generateRoundRobin(names) {
-  const arr = names.slice();
-  if (arr.length < 2) return [];
-  if (arr.length % 2 === 1) arr.push("BYE");
-
-  const rounds = [];
-  const n = arr.length;
-  const half = n / 2;
-
-  const fixed = arr[0];
-  let rest = arr.slice(1);
-
-  for (let r = 0; r < n - 1; r++) {
-    const pairs = [];
-
-    const left = [fixed, ...rest.slice(0, half - 1)];
-    const right = rest.slice(half - 1).reverse();
-
-    for (let i = 0; i < half; i++) {
-      const a = left[i], b = right[i];
-      if (a !== "BYE" && b !== "BYE") {
-        pairs.push({ a, b, sa: "", sb: "", saved: false, round: r + 1 });
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Expense Tracker — All-in-One</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      :root {
+        --bg: #f9fbfd;
+        --card: #ffffff;
+        --accent: #4f8ef7;
+        --accent-light: #eaf2ff;
+        --text: #2d2d2d;
+        --muted: #707070;
+        --success: #2ecc71;
+        --danger: #e74c3c;
       }
-    }
 
-    rounds.push(...pairs);
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family: "Inter", sans-serif;
+      }
 
-    // ✅ rotate rest right by 1
-    rest.unshift(rest.pop());
-  }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        padding: 1rem;
+        line-height: 1.5;
+      }
+      h1 {
+        text-align: center;
+        margin-bottom: 1rem;
+        font-weight: 700;
+        color: var(--accent);
+      }
+      h2,
+      h3 {
+        text-align: center;
+        margin: 1rem 0;
+      }
 
-  return rounds;
-}
+      .container {
+        max-width: 1000px;
+        margin: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+      .card {
+        background: var(--card);
+        padding: 1.5rem;
+        border-radius: 1rem;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+      }
 
+      .summary {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        justify-content: space-between;
+        align-items: stretch;
+      }
+      .summary div {
+        flex: 1 1 200px;
+        text-align: center;
+        padding: 1rem;
+        border-radius: 0.75rem;
+        color: white;
+      }
 
-  on(buildBtn, 'click', () => {
-    const st = getState();
-    const names = st.players.map(p => p.name).filter(Boolean);
-    if (names.length < 2) {
-      alert('Add at least 2 players');
-      return;
-    }
-    st.matches = generateRoundRobin(names);
-    recomputeStats();
-    renderMatches();
-    renderStats();
-    saveDB();
-  });
+      .income {
+        background: #2ecc71 !important;
+      }
+      .expense {
+        background: #e74c3c !important;
+      }
+      .balance {
+        background: #4f8ef7 !important;
+      }
+      .credit-card-summary {
+      }
 
-  on(resetBtn, 'click', () => {
-    const st = getState();
-    if (!confirm('Reset all match scores for this tournament?')) return;
-    st.matches.forEach(m => { m.sa=''; m.sb=''; m.saved=false; });
-    recomputeStats();
-    renderMatches();
-    renderStats();
-    saveDB();
-  });
+      form {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-bottom: 1rem;
+      }
+      input,
+      select,
+      button {
+        padding: 0.75rem;
+        border: 1px solid #ddd;
+        border-radius: 0.5rem;
+        font-size: 1rem;
+      }
+      input,
+      select {
+        flex: 1;
+      }
+      button {
+        background: var(--accent);
+        color: white;
+        font-weight: 600;
+        cursor: pointer;
+        transition: 0.3s;
+      }
+      button:hover {
+        background: #3a73d9;
+      }
 
-  on(printBtn, 'click', () => window.print());
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1rem;
+        background: white;
+      }
+      th,
+      td {
+        padding: 0.75rem;
+        border-bottom: 1px solid #eee;
+        text-align: center;
+      }
+      th {
+        background: var(--accent-light);
+        color: var(--accent);
+        font-weight: 600;
+      }
 
-  function renderMatches() {
-    const st = getState();
-    matchesTitle.textContent = `Matches — ${getKey()}`;
-    const tbl = matchesTable;
-    tbl.innerHTML = '';
+      .actions button {
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        margin: 0 0.25rem;
+      }
+      .actions .edit {
+        color: var(--accent);
+      }
+      .actions .delete {
+        color: var(--danger);
+      }
 
-    if (!st.matches.length) {
-      tbl.innerHTML = '<tr><td>No matches. Click "Generate Matches".</td></tr>';
-      return;
-    }
+      .controls {
+        text-align: center;
+        margin: 10px 0;
+      }
+      .controls button {
+        margin: 0 5px;
+      }
 
-    // group by round number
-    const byRound = new Map();
-    for (const m of st.matches) {
-      if (!byRound.has(m.round)) byRound.set(m.round, []);
-      byRound.get(m.round).push(m);
-    }
+      .chart-row {
+        display: flex;
+        gap: 20px;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin: 20px 0;
+      }
+      .chart-row canvas {
+        width: 280px !important;
+        height: 220px !important;
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        padding: 10px;
+      }
 
-    let html = `
-      <tr>
-        <th style="text-align:left">S.No</th>
-        <th style="text-align:left">Round</th>
-        <th style="text-align:left">Match</th>
-        <th style="text-align:center">A</th>
-        <th style="text-align:center">B</th>
-        <th style="text-align:center">Save</th>
-      </tr>
-    `;
-    let idx = 1;
+      /* Daily section header */
+      .day-header {
+        color: white;
+        font-weight: bold;
+        text-align: left;
+        padding: 6px 10px;
+      }
+      .day-header-0 {
+        background-color: #f06292;
+      }
+      .day-header-1 {
+        background-color: #64b5f6;
+      }
+      .day-header-2 {
+        background-color: #81c784;
+      }
+      .day-header-3 {
+        background-color: #ffd54f;
+      }
+      .day-header-4 {
+        background-color: #9575cd;
+      }
+      .day-header-5 {
+        background-color: #4dd0e1;
+      }
+      .day-header-6 {
+        background-color: #dce775;
+      }
 
-    for (const [rnd, arr] of [...byRound.entries()].sort((a,b)=>a[0]-b[0])) {
-      for (const m of arr) {
-        const rowId = `m_${rnd}_${idx}`;
-        html += `
-          <tr data-row="${rowId}">
-            <td>${idx}</td>
-            <td>R${rnd}</td>
-            <td>${esc(m.a)} vs ${esc(m.b)}</td>
-            <td style="text-align:center">
-              <input type="number" min="0" step="1" data-a value="${m.sa ?? ''}" ${m.saved?'disabled':''}>
-            </td>
-            <td style="text-align:center">
-              <input type="number" min="0" step="1" data-b value="${m.sb ?? ''}" ${m.saved?'disabled':''}>
-            </td>
-            <td style="text-align:center">
-              <button class="btn" data-save ${m.saved?'disabled':''}>Save</button>
-            </td>
-          </tr>
+      @media (max-width: 600px) {
+        form {
+          flex-direction: column;
+        }
+        .summary {
+          flex-direction: column;
+        }
+        .chart-row {
+          flex-direction: column;
+          align-items: center;
+        }
+        .chart-row canvas {
+          width: 95% !important;
+          height: 250px !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <h1>💸 Expense Tracker</h1>
+    <div class="container">
+      <!-- Summary -->
+      <div class="card summary" id="summaryPanel">
+        <div class="income">
+          <h2 id="income">₹0</h2>
+          <p>Income</p>
+        </div>
+        <div class="expense">
+          <h2 id="expense">₹0</h2>
+          <p>Expenses</p>
+        </div>
+        <div class="balance">
+          <h2 id="balance">₹0</h2>
+          <p>Balance</p>
+        </div>
+      </div>
+
+      <!-- Add Transaction Form -->
+      <div class="card">
+        <form id="transactionForm">
+          <input type="text" id="desc" placeholder="Description" required />
+          <input type="number" id="amount" placeholder="Amount" required />
+          <select id="type">
+            <option value="income">Income</option>
+            <option value="expense">Expense</option>
+            <option value="credit">Credit Card</option>
+          </select>
+          <input
+            type="text"
+            id="creditCard"
+            placeholder="Credit Card Name (if any)"
+          />
+          <input type="date" id="dateInput" />
+          <button type="submit">Add</button>
+        </form>
+
+        <div class="controls">
+          <button onclick="exportData()">Export CSV</button>
+          <button onclick="resetData()">Reset Data</button>
+          <input
+            type="file"
+            id="fileInput"
+            accept=".csv"
+            onchange="importData(event)"
+          />
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Description</th>
+              <th>Amount</th>
+              <th>Type</th>
+              <th>Credit Card</th>
+              <th>Date</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="transactions"></tbody>
+        </table>
+      </div>
+
+      <!-- Charts -->
+      <h3>Dashboard</h3>
+      <div class="chart-row">
+        <canvas id="pieChart"></canvas>
+        <canvas id="barChart"></canvas>
+        <canvas id="lineChart"></canvas>
+      </div>
+    </div>
+
+    <script>
+      const form = document.getElementById("transactionForm");
+      const transactionsEl = document.getElementById("transactions");
+      const incomeEl = document.getElementById("income");
+      const expenseEl = document.getElementById("expense");
+      const balanceEl = document.getElementById("balance");
+      const summaryPanel = document.getElementById("summaryPanel");
+
+      let transactions = JSON.parse(localStorage.getItem("transactions")) || [];
+      const cardColors = [
+        "#9b59b6",
+        "#f39c12",
+        "#1abc9c",
+        "#8e44ad",
+        "#16a085",
+        "#d35400",
+      ];
+      const headerColors = [
+        "day-header-0",
+        "day-header-1",
+        "day-header-2",
+        "day-header-3",
+        "day-header-4",
+        "day-header-5",
+        "day-header-6",
+      ];
+
+      function updateSummary(filteredTx = transactions) {
+        let income = filteredTx
+          .filter((t) => t.type === "income")
+          .reduce((sum, t) => sum + t.amount, 0);
+        let expense = filteredTx
+          .filter((t) => t.type === "expense")
+          .reduce((sum, t) => sum + t.amount, 0);
+        let creditCards = {};
+        filteredTx
+          .filter((t) => t.type === "credit")
+          .forEach((t) => {
+            creditCards[t.card || "Unnamed Card"] =
+              (creditCards[t.card || "Unnamed Card"] || 0) + t.amount;
+          });
+
+        const totalCredit = Object.values(creditCards).reduce(
+          (a, b) => a + b,
+          0
+        );
+
+        incomeEl.textContent = `₹${income}`;
+        expenseEl.textContent = `₹${expense + totalCredit}`;
+        balanceEl.textContent = `₹${income - (expense + totalCredit)}`;
+
+        document
+          .querySelectorAll(".credit-card-summary")
+          .forEach((el) => el.remove());
+
+        let i = 0;
+        for (const [card, amount] of Object.entries(creditCards)) {
+          const div = document.createElement("div");
+          div.className = "credit-card-summary";
+          div.style.backgroundColor = cardColors[i % cardColors.length];
+          div.innerHTML = `<h2>₹${amount}</h2><p>${card}</p>`;
+          summaryPanel.appendChild(div);
+          i++;
+        }
+
+        updateCharts(income, expense, creditCards);
+      }
+
+      function renderTransactions() {
+        transactionsEl.innerHTML = "";
+        let lastDate = "";
+        let dayIndex = -1;
+        transactions.forEach((t, index) => {
+          if (t.date !== lastDate) {
+            dayIndex = (dayIndex + 1) % headerColors.length;
+            lastDate = t.date;
+            const headerRow = document.createElement("tr");
+            headerRow.className = headerColors[dayIndex] + " day-header";
+            const headerCell = document.createElement("td");
+            headerCell.colSpan = 6;
+            headerCell.textContent = `📅 ${t.date}`;
+            headerRow.appendChild(headerCell);
+            transactionsEl.appendChild(headerRow);
+          }
+          const row = document.createElement("tr");
+          row.innerHTML = `
+          <td>${t.desc}</td>
+          <td>${t.amount}</td>
+          <td>${t.type}</td>
+          <td>${t.card || "-"}</td>
+          <td>${t.date}</td>
+          <td class="actions">
+            <button class="edit" onclick="editTransaction(${index})">✏️</button>
+            <button class="delete" onclick="deleteTransaction(${index})">🗑️</button>
+          </td>
         `;
-        idx++;
+          transactionsEl.appendChild(row);
+        });
+        updateSummary(transactions);
       }
-    }
 
-    tbl.innerHTML = html;
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const desc = document.getElementById("desc").value;
+        const amount = parseFloat(document.getElementById("amount").value);
+        const type = document.getElementById("type").value;
+        const card = document.getElementById("creditCard").value;
+        const dateInput = document.getElementById("dateInput").value;
+        const date = dateInput
+          ? new Date(dateInput).toLocaleDateString()
+          : new Date().toLocaleDateString();
+        transactions.push({ desc, amount, type, card, date });
+        localStorage.setItem("transactions", JSON.stringify(transactions));
+        form.reset();
+        renderTransactions();
+      });
 
-    // wire save buttons
-    let rowIdx = 0;
-    for (const [rnd, arr] of [...byRound.entries()].sort((a,b)=>a[0]-b[0])) {
-      for (const m of arr) {
-        const tr = tbl.querySelectorAll('tr[data-row]')[rowIdx];
-        const inA = tr.querySelector('input[data-a]');
-        const inB = tr.querySelector('input[data-b]');
-        const btn = tr.querySelector('button[data-save]');
+      function deleteTransaction(index) {
+        transactions.splice(index, 1);
+        localStorage.setItem("transactions", JSON.stringify(transactions));
+        renderTransactions();
+      }
 
-        btn.onclick = () => {
-          const a = inA.value.trim();
-          const b = inB.value.trim();
-          if (a === '' || b === '') { alert('Enter both scores'); return; }
-          const na = parseInt(a, 10), nb = parseInt(b, 10);
-          if (Number.isNaN(na) || Number.isNaN(nb)) { alert('Scores must be numbers'); return; }
-          if (na === nb) { alert('No ties allowed'); return; }
+      function editTransaction(index) {
+        const t = transactions[index];
+        document.getElementById("desc").value = t.desc;
+        document.getElementById("amount").value = t.amount;
+        document.getElementById("type").value = t.type;
+        document.getElementById("creditCard").value = t.card || "";
+        document.getElementById("dateInput").value = new Date(t.date)
+          .toISOString()
+          .split("T")[0];
+        deleteTransaction(index);
+      }
 
-          m.sa = na; m.sb = nb; m.saved = true;
-          inA.disabled = true; inB.disabled = true; btn.disabled = true;
+      function exportData() {
+        const rows = [["Description", "Amount", "Type", "Credit Card", "Date"]];
+        transactions.forEach((t) =>
+          rows.push([t.desc, t.amount, t.type, t.card || "", t.date])
+        );
+        const csv = rows.map((r) => r.join(",")).join("\n");
+        const blob = new Blob([csv], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "transactions.csv";
+        a.click();
+        URL.revokeObjectURL(url);
+      }
 
-          recomputeStats();
-          renderStats();
-          saveDB(); // persist scores immediately
+      function importData(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          const lines = e.target.result.split("\n").slice(1);
+          transactions = [];
+          lines.forEach((line) => {
+            if (line.trim() === "") return;
+            const [desc, amount, type, card, date] = line.split(",");
+            transactions.push({
+              desc,
+              amount: parseFloat(amount),
+              type,
+              card,
+              date,
+            });
+          });
+          localStorage.setItem("transactions", JSON.stringify(transactions));
+          renderTransactions();
         };
-
-        rowIdx++;
+        reader.readAsText(file);
       }
-    }
-  }
 
-  // ---------- Stats ----------
-  function getStatsFor(name) {
-    const st = getState();
-    return st.stats.get(name) || { P:0, W:0, L:0, PF:0, PA:0 };
-  }
-
-  function recomputeStats() {
-    const st = getState();
-    st.stats = new Map();
-    for (const p of st.players) st.stats.set(p.name, { P:0, W:0, L:0, PF:0, PA:0 });
-
-    for (const m of st.matches) {
-      if (!m.saved) continue;
-      const a = st.stats.get(m.a) || { P:0, W:0, L:0, PF:0, PA:0 };
-      const b = st.stats.get(m.b) || { P:0, W:0, L:0, PF:0, PA:0 };
-
-      a.P++; b.P++;
-      a.PF += m.sa; a.PA += m.sb;
-      b.PF += m.sb; b.PA += m.sa;
-      if (m.sa > m.sb) { a.W++; b.L++; } else { b.W++; a.L++; }
-
-      st.stats.set(m.a, a); st.stats.set(m.b, b);
-    }
-  }
-
-  function renderStats() {
-    const st = getState();
-    const rows = [...st.stats.entries()]
-      .map(([name, s]) => ({ name, ...s }))
-      .sort((x,y) =>
-        (y.W - x.W) ||
-        ((y.PF - y.PA) - (x.PF - x.PA)) ||
-        (y.PF - x.PF)
-      );
-
-    statsBody.innerHTML = '';
-    rows.forEach((r, i) => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${i+1}</td>
-        <td>${esc(r.name)}</td>
-        <td>${r.P}</td>
-        <td class="win">${r.W}</td>
-        <td class="loss">${r.L}</td>
-        <td>${r.PF}</td>
-        <td>${r.PA}</td>
-        <td>${r.PF - r.PA}</td>
-      `;
-      statsBody.appendChild(tr);
-    });
-  }
-
-  // ---------- Modal (Edit Player) ----------
-  let currentPlayerIndex = -1;
-
-  function showPlayerDetails(idx) {
-    const st = getState();
-    if (idx < 0 || idx >= st.players.length) return;
-    currentPlayerIndex = idx;
-
-    const p = st.players[idx];
-
-    // Fill fields
-    if (!modal) return;
-    modalPhoto.src     = p.photo || 'https://via.placeholder.com/160';
-    modalId.value      = p.id || '';
-    modalAadhar.value  = p.aadhar || '';
-    modalNameInput.value = p.name || '';
-    modalAge.value     = p.age || '';
-    modalCountry.value = p.country || '';
-    modalVideo.value   = p.video || '';
-    modalBio.value     = p.bio || '';
-
-    const s = getStatsFor(p.name);
-    modalStats.innerHTML = `
-      <table style="width:100%; border-collapse:collapse; font-size:13px;">
-        <tr><td style="text-align:left;">Played</td><td>${s.P}</td></tr>
-        <tr><td style="text-align:left; color:var(--win);">Wins</td><td>${s.W}</td></tr>
-        <tr><td style="text-align:left; color:var(--loss);">Losses</td><td>${s.L}</td></tr>
-        <tr><td style="text-align:left;">Points For</td><td>${s.PF}</td></tr>
-        <tr><td style="text-align:left;">Points Against</td><td>${s.PA}</td></tr>
-        <tr><td style="text-align:left;">± Diff</td><td>${s.PF - s.PA}</td></tr>
-      </table>
-    `;
-
-    // Photo change
-    modalPhotoInput.value = '';
-    modalPhotoInput.onchange = () => {
-      if (modalPhotoInput.files && modalPhotoInput.files[0]) {
-        const rd = new FileReader();
-        rd.onload = e => {
-          st.players[idx].photo = e.target.result;
-          modalPhoto.src = e.target.result;
-          renderPlayersSidebar();
-          saveDB();
-        };
-        rd.readAsDataURL(modalPhotoInput.files[0]);
-      }
-    };
-
-    // Save
-    modalSaveBtn.onclick = () => {
-      const oldName = p.name;
-      const newName = modalNameInput.value.trim() || oldName;
-
-      p.id      = modalId.value.trim();
-      p.aadhar  = modalAadhar.value.trim();
-      p.name    = newName;
-      p.age     = modalAge.value.trim();
-      p.country = modalCountry.value.trim();
-      p.video   = modalVideo.value.trim();
-      p.bio     = modalBio.value.trim();
-
-      if (newName !== oldName) {
-        for (const m of st.matches) {
-          if (m.a === oldName) m.a = newName;
-          if (m.b === oldName) m.b = newName;
-        }
-        const oldStats = st.stats.get(oldName);
-        if (oldStats) {
-          st.stats.delete(oldName);
-          st.stats.set(newName, oldStats);
+      function resetData() {
+        if (confirm("Are you sure you want to reset all data?")) {
+          transactions = [];
+          localStorage.removeItem("transactions");
+          renderTransactions();
         }
       }
 
-      st.players[idx] = p;
-      recomputeStats();
-      renderPlayersSidebar();
-      renderMatches();
-      renderStats();
-      closeModal();
-      saveDB();
-    };
+      let pieChart, barChart, lineChart;
+      function updateCharts(income, expense, creditCards) {
+        const labels = ["Income", "Expense", ...Object.keys(creditCards)];
+        const data = [income, expense, ...Object.values(creditCards)];
 
-    // Prev/Next
-    modalPrevBtn.onclick = () => { if (currentPlayerIndex > 0) showPlayerDetails(currentPlayerIndex - 1); };
-    modalNextBtn.onclick = () => { if (currentPlayerIndex < getState().players.length - 1) showPlayerDetails(currentPlayerIndex + 1); };
+        if (pieChart) pieChart.destroy();
+        if (barChart) barChart.destroy();
+        if (lineChart) lineChart.destroy();
 
-    // Delete
-    modalDeleteBtn.onclick = () => {
-      if (!confirm(`Delete ${p.name || 'this player'}?`)) return;
-      st.players.splice(idx, 1);
-      st.matches = st.matches.filter(m => m.a !== p.name && m.b !== p.name);
-      recomputeStats();
-      renderPlayersSidebar();
-      renderMatches();
-      renderStats();
-      closeModal();
-      saveDB();
-    };
+        const bgColors = ["#2ecc71", "#e74c3c", ...cardColors];
 
-    modalCancelBtn.onclick = closeModal;
-    if (modalX) modalX.onclick = closeModal; // works for either .close or #modalX
+        pieChart = new Chart(document.getElementById("pieChart"), {
+          type: "pie",
+          data: {
+            labels,
+            datasets: [
+              { data, backgroundColor: bgColors.slice(0, labels.length) },
+            ],
+          },
+          options: { plugins: { legend: { position: "bottom" } } },
+        });
 
-    modal.classList.add('open');
-    modal.style.display = 'flex';
-  }
+        barChart = new Chart(document.getElementById("barChart"), {
+          type: "bar",
+          data: {
+            labels,
+            datasets: [
+              {
+                label: "Overview",
+                data,
+                backgroundColor: bgColors.slice(0, labels.length),
+              },
+            ],
+          },
+          options: { responsive: true, scales: { y: { beginAtZero: true } } },
+        });
 
-  window.closeModal = function(){
-    if (modal) {
-      modal.classList.remove('open');
-      modal.style.display = 'none';
-    }
-  };
-
-  // ---------- Import / Export (ENTIRE DB) ----------
-  on(exportBtn, 'click', () => {
-    const out = {};
-    for (const [k, v] of Object.entries(TOURNAMENTS)) {
-      out[k] = {
-        players: v.players,
-        matches: v.matches,
-        stats: Object.fromEntries(v.stats),
-        meta: v.meta || {}
-      };
-    }
-  const fileName = prompt("Enter filename to save:", "round_robin_database.json");
-if (!fileName) return; // user cancelled
-
-const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
-const a = document.createElement('a');
-a.href = URL.createObjectURL(blob);
-a.download = fileName.endsWith(".json") ? fileName : fileName + ".json";
-a.click();
-});
-
-
-  on(importBtn, 'click', () => importFile.click());
-  on(importFile, 'change', e => {
-    const f = e.target.files[0];
-    if (!f) return;
-    const r = new FileReader();
-    r.onload = ev => {
-      try {
-        const data = JSON.parse(ev.target.result);
-        for (const k of Object.keys(TOURNAMENTS)) delete TOURNAMENTS[k];
-        for (const [k, v] of Object.entries(data)) {
-          TOURNAMENTS[k] = {
-            players: Array.isArray(v.players) ? v.players : [],
-            matches: Array.isArray(v.matches) ? v.matches : [],
-            stats: new Map(Object.entries(v.stats || {})),
-            meta: v.meta || {}
-          };
-        }
-        renderAll();
-        saveDB();
-        alert('Imported entire database successfully.');
-      } catch (err) {
-        alert('Invalid file.');
+        lineChart = new Chart(document.getElementById("lineChart"), {
+          type: "line",
+          data: {
+            labels,
+            datasets: [
+              {
+                label: "Trend",
+                data,
+                borderColor: "#4f8ef7",
+                backgroundColor: "rgba(79,142,247,0.2)",
+                fill: true,
+                tension: 0.3,
+              },
+            ],
+          },
+          options: { responsive: true, scales: { y: { beginAtZero: true } } },
+        });
       }
-    };
-    r.readAsText(f);
-  });
 
-  // ---------- Initial render ----------
-  function renderAll() {
-    renderPlayersSidebar();
-    updateCount();
-    renderMatches();
-    renderStats();
-    saveDB();
-  }
-
-  openDB().then(() => loadDB()).then(() => { renderAll(); });
-
-})();
-
-
-
-function saveTournaments(t) {
-  localStorage.setItem("tournaments", JSON.stringify(t));
-}
-
-function loadTournaments() {
-  return JSON.parse(localStorage.getItem("tournaments") || "[]");
-}
-
-</script>
-
-<script>
-  const header = document.querySelector("header");
-  const toggleBtn = document.getElementById("toggleHeaderBtn");
-
-  let headerVisible = true;
-
-  toggleBtn.addEventListener("click", () => {
-    headerVisible = !headerVisible;
-    header.style.display = headerVisible ? "flex" : "none";
-    toggleBtn.textContent = headerVisible ? "Hide Header" : "Show Header";
-  });
-</script>
-
-</body>
-<script src="tournament.js"></script> 
+      renderTransactions();
+    </script>
+  </body>
 </html>
