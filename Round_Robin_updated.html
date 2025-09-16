@@ -404,6 +404,8 @@
         <div class="controls">
           <button class="btn primary" id="buildBtn">Generate Matches</button>
           <button class="btn" id="resetBtn">Reset Matches</button>
+          <button class="btn" id="resetAllBtn">Reset All Categories</button>
+          <button class="btn" id="clearAllBtn">Clear All Categories</button>
           <button class="btn" id="printBtn">Print</button>
 
           <button class="btn" id="exportBtn">Export (All)</button>
@@ -467,6 +469,8 @@
               📂 Saved Tournaments
             </h3>
             <button id="saveFolderBtn">Save Current Tournament</button>
+            <button id="saveAllBtn">Save ALL Tournaments</button>
+
             <ul id="folderList" style="display: none"></ul>
           </div>
           <!-- Popup -->
@@ -1009,6 +1013,33 @@
             saveDB();
           }
 
+          on(q("resetAllBtn"), "click", () => {
+            if (!confirm("Reset all match scores for ALL categories?")) return;
+            for (const [k, st] of Object.entries(TOURNAMENTS)) {
+              (st.matches || []).forEach((m) => {
+                m.sa = "";
+                m.sb = "";
+                m.saved = false;
+              });
+              st.stats = new Map();
+            }
+            renderAll();
+            saveDB();
+          });
+
+          on(q("clearAllBtn"), "click", () => {
+            if (!confirm("Clear ALL players and matches from ALL categories?"))
+              return;
+            for (const [k, st] of Object.entries(TOURNAMENTS)) {
+              st.players = [];
+              st.matches = [];
+              st.stats = new Map();
+              st.teams = [];
+            }
+            renderAll();
+            saveDB();
+          });
+
           function renderPlayersSidebar() {
             const st = getState();
             if (!playerList) return;
@@ -1314,6 +1345,35 @@
             localStorage.setItem("folder_" + folderKey, JSON.stringify(st));
             renderFolders();
           });
+          on(q("saveAllBtn"), "click", () => {
+            let name = prompt(
+              "Enter a name for this archive of all tournaments:",
+              "all_tournaments"
+            );
+            if (!name) return;
+            const folderKey = `${new Date()
+              .toISOString()
+              .slice(0, 10)}_${name}`;
+
+            // Copy everything from TOURNAMENTS
+            const archive = {};
+            for (const [k, st] of Object.entries(TOURNAMENTS)) {
+              archive[k] = {
+                players: st.players,
+                matches: st.matches,
+                teams: st.teams || [],
+                stats: Object.fromEntries(st.stats || []),
+                meta: st.meta || {},
+                matchType: st.matchType || "Singles",
+              };
+            }
+
+            localStorage.setItem(
+              "folder_" + folderKey,
+              JSON.stringify({ all: archive })
+            );
+            renderFolders();
+          });
 
           on(q("folderToggle"), "click", () => {
             const list = q("folderList");
@@ -1355,9 +1415,10 @@
               popup.style.display === "block" &&
               popup.dataset.key === folderKey
             ) {
-              popup.style.display = "none"; // already open → close
+              popup.style.display = "none";
               return;
             }
+
             const data = localStorage.getItem("folder_" + folderKey);
             if (!data) return;
             const parsed = JSON.parse(data);
@@ -1366,15 +1427,29 @@
             popup.style.display = "block";
             popup.style.top = "50%";
             popup.style.left = "50%";
-            popup.style.transform = "translate(-50%, -50%)"; // center
+            popup.style.transform = "translate(-50%, -50%)";
             q("popupTitle").textContent = folderKey;
-            q("popupContent").innerHTML = `
-    <p><b>Players:</b> ${parsed.players.map((p) => p.name).join(", ")}</p>
-    <p><b>Matches:</b> ${parsed.matches.length}</p>
-  `;
-            // load tournament immediately
-            TOURNAMENTS[getKey()] = JSON.parse(JSON.stringify(parsed));
-            renderAll();
+
+            if (parsed.all) {
+              // multi-category archive
+              q("popupContent").innerHTML = `<p>Contains ${
+                Object.keys(parsed.all).length
+              } categories</p>`;
+              // load all immediately
+              for (const [k, v] of Object.entries(parsed.all)) {
+                TOURNAMENTS[k] = JSON.parse(JSON.stringify(v));
+                TOURNAMENTS[k].stats = new Map(Object.entries(v.stats || {}));
+              }
+              renderAll();
+            } else {
+              // single category archive (old style)
+              q("popupContent").innerHTML = `
+      <p><b>Players:</b> ${parsed.players.map((p) => p.name).join(", ")}</p>
+      <p><b>Matches:</b> ${parsed.matches.length}</p>
+    `;
+              TOURNAMENTS[getKey()] = JSON.parse(JSON.stringify(parsed));
+              renderAll();
+            }
           };
 
           // Popup open
