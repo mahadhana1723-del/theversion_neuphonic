@@ -1402,20 +1402,42 @@
               offsetY = 0,
               dragging = false;
 
-            header.onmousedown = (e) => {
+            // Mouse events
+            header.addEventListener("mousedown", (e) => {
               dragging = true;
               offsetX = e.clientX - popup.offsetLeft;
               offsetY = e.clientY - popup.offsetTop;
-              document.onmousemove = (ev) => {
+            });
+            document.addEventListener("mousemove", (e) => {
+              if (!dragging) return;
+              popup.style.left = e.clientX - offsetX + "px";
+              popup.style.top = e.clientY - offsetY + "px";
+            });
+            document.addEventListener("mouseup", () => {
+              dragging = false;
+            });
+
+            // Touch events
+            header.addEventListener("touchstart", (e) => {
+              dragging = true;
+              const t = e.touches[0];
+              offsetX = t.clientX - popup.offsetLeft;
+              offsetY = t.clientY - popup.offsetTop;
+            });
+            document.addEventListener(
+              "touchmove",
+              (e) => {
                 if (!dragging) return;
-                popup.style.left = ev.clientX - offsetX + "px";
-                popup.style.top = ev.clientY - offsetY + "px";
-              };
-              document.onmouseup = () => {
-                dragging = false;
-                document.onmousemove = null;
-              };
-            };
+                const t = e.touches[0];
+                popup.style.left = t.clientX - offsetX + "px";
+                popup.style.top = t.clientY - offsetY + "px";
+                e.preventDefault(); // prevent page scroll while dragging
+              },
+              { passive: false }
+            );
+            document.addEventListener("touchend", () => {
+              dragging = false;
+            });
           })();
 
           // Export / Import
