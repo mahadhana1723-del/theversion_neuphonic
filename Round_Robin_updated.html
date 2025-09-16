@@ -267,6 +267,39 @@
         width: calc(100% - 20px);
         margin-bottom: 3px;
       }
+      .popup {
+        display: none;
+        position: fixed;
+        top: 100px;
+        left: 100px;
+        width: 320px;
+        background: var(--card);
+        border-radius: 12px;
+        box-shadow: var(--shadow-light);
+        z-index: 500;
+      }
+      .popup-header {
+        cursor: move;
+        background: var(--accent);
+        color: #fff;
+        padding: 8px;
+        border-radius: 12px 12px 0 0;
+        display: flex;
+        justify-content: space-between;
+      }
+      .popup-body {
+        padding: 10px;
+        max-height: 400px;
+        overflow-y: auto;
+      }
+      .folder-link {
+        cursor: pointer;
+        color: var(--accent);
+        font-weight: 600;
+      }
+      .folder-link:hover {
+        text-decoration: underline;
+      }
     </style>
   </head>
   <body>
@@ -397,6 +430,21 @@
           </div>
           <div id="playerDetails" class="card" style="margin-top: 12px">
             <p>Select a player from the sidebar…</p>
+          </div>
+          <div id="savedTournaments">
+            <h3 id="folderToggle" style="cursor: pointer">
+              📂 Saved Tournaments
+            </h3>
+            <button id="saveFolderBtn">Save Current Tournament</button>
+            <ul id="folderList" style="display: none"></ul>
+          </div>
+          <!-- Popup -->
+          <div id="folderPopup" class="popup">
+            <div class="popup-header">
+              <span id="popupTitle">Tournament</span>
+              <button onclick="closeFolderPopup()">❌</button>
+            </div>
+            <div class="popup-body" id="popupContent"></div>
           </div>
         </aside>
       </main>
@@ -1224,6 +1272,152 @@
           });
           on(printBtn, "click", () => window.print());
 
+          // Save current tournament into archive (localStorage based)
+          on(q("saveFolderBtn"), "click", () => {
+            const st = getState();
+            let name = prompt("Enter a name for this tournament:", getKey());
+            if (!name) return;
+            const folderKey = `${new Date()
+              .toISOString()
+              .slice(0, 10)}_${name}`;
+            localStorage.setItem("folder_" + folderKey, JSON.stringify(st));
+            renderFolders();
+          });
+
+          on(q("folderToggle"), "click", () => {
+            const list = q("folderList");
+            if (!list) return;
+            if (list.style.display === "none" || !list.style.display) {
+              list.style.display = "block";
+              q("folderToggle").textContent = "📂 Saved Tournaments ▾";
+            } else {
+              list.style.display = "none";
+              q("folderToggle").textContent = "📂 Saved Tournaments ▸";
+            }
+          });
+
+          // Render folder list
+          function renderFolders() {
+            const ul = q("folderList");
+            ul.innerHTML = "";
+            for (let i = 0; i < localStorage.length; i++) {
+              const key = localStorage.key(i);
+              if (key.startsWith("folder_")) {
+                const folderKey = key.replace("folder_", "");
+                const li = document.createElement("li");
+                li.innerHTML = `
+  <span class="folder-link" onclick="toggleFolderPopup('${folderKey}')">${folderKey}</span>
+  <button onclick="confirmDeleteFolder('${folderKey}')">❌</button>
+`;
+
+                ul.appendChild(li);
+              }
+            }
+          }
+
+          window.toggleFolderPopup = (folderKey) => {
+            const popup = q("folderPopup");
+            if (
+              popup.style.display === "block" &&
+              popup.dataset.key === folderKey
+            ) {
+              popup.style.display = "none"; // already open → close
+              return;
+            }
+            const data = localStorage.getItem("folder_" + folderKey);
+            if (!data) return;
+            const parsed = JSON.parse(data);
+
+            popup.dataset.key = folderKey;
+            popup.style.display = "block";
+            popup.style.top = "50%";
+            popup.style.left = "50%";
+            popup.style.transform = "translate(-50%, -50%)"; // center
+            q("popupTitle").textContent = folderKey;
+            q("popupContent").innerHTML = `
+    <p><b>Players:</b> ${parsed.players.map((p) => p.name).join(", ")}</p>
+    <p><b>Matches:</b> ${parsed.matches.length}</p>
+  `;
+            // load tournament immediately
+            TOURNAMENTS[getKey()] = JSON.parse(JSON.stringify(parsed));
+            renderAll();
+          };
+
+          // Popup open
+          window.openFolderPopup = (folderKey) => {
+            const data = localStorage.getItem("folder_" + folderKey);
+            if (!data) return;
+            const parsed = JSON.parse(data);
+
+            const popup = q("folderPopup");
+            const title = q("popupTitle");
+            const body = q("popupContent");
+            if (title) title.textContent = folderKey;
+            if (body) {
+              body.innerHTML = `
+      <p><b>Players:</b> ${parsed.players.map((p) => p.name).join(", ")}</p>
+      <button onclick="loadFolder('${folderKey}')">Load Tournament</button>
+    `;
+            }
+            if (popup) popup.style.display = "block";
+          };
+          window.confirmDeleteFolder = (folderKey) => {
+            if (confirm(`Delete saved tournament "${folderKey}"?`)) {
+              localStorage.removeItem("folder_" + folderKey);
+              renderFolders();
+              closeFolderPopup();
+            }
+          };
+
+          // Close popup
+          window.closeFolderPopup = () => {
+            const popup = q("folderPopup");
+            if (popup) popup.style.display = "none";
+          };
+
+          // Load tournament fully
+          window.loadFolder = (folderKey) => {
+            const data = localStorage.getItem("folder_" + folderKey);
+            if (!data) return;
+            const parsed = JSON.parse(data);
+            // deep copy so archive untouched
+            TOURNAMENTS[getKey()] = JSON.parse(JSON.stringify(parsed));
+            renderAll();
+            closeFolderPopup();
+          };
+
+          // Delete only from archives
+          window.deleteFolder = (folderKey) => {
+            localStorage.removeItem("folder_" + folderKey);
+            renderFolders();
+          };
+
+          // --- Make popup draggable ---
+          (function makePopupDraggable() {
+            const popup = q("folderPopup");
+            const header = popup?.querySelector(".popup-header");
+            if (!popup || !header) return;
+
+            let offsetX = 0,
+              offsetY = 0,
+              dragging = false;
+
+            header.onmousedown = (e) => {
+              dragging = true;
+              offsetX = e.clientX - popup.offsetLeft;
+              offsetY = e.clientY - popup.offsetTop;
+              document.onmousemove = (ev) => {
+                if (!dragging) return;
+                popup.style.left = ev.clientX - offsetX + "px";
+                popup.style.top = ev.clientY - offsetY + "px";
+              };
+              document.onmouseup = () => {
+                dragging = false;
+                document.onmousemove = null;
+              };
+            };
+          })();
+
           // Export / Import
           function exportAllData() {
             try {
@@ -1619,6 +1813,7 @@
               if (matchTypeSel) matchTypeSel.value = st.matchType || "Singles";
               maybeAutoBuild();
               renderAll();
+              renderFolders();
             })
             .catch((err) => {
               console.warn("DB init failed", err);
