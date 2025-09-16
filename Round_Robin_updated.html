@@ -1158,7 +1158,7 @@
 
           on(buildBtn, "click", () => {
             const st = getState();
-            if (matchTypeSel) st.matchType = matchTypeSel.value;
+            st.matchType = matchTypeSel.value;
 
             // collect names optionally randomized (non-destructive)
             let names = st.players.map((p) => p.name).filter(Boolean);
@@ -1342,7 +1342,10 @@
             const folderKey = `${new Date()
               .toISOString()
               .slice(0, 10)}_${name}`;
-            localStorage.setItem("folder_" + folderKey, JSON.stringify(st));
+            localStorage.setItem(
+              "folder_" + folderKey,
+              JSON.stringify({ all: archive })
+            );
             renderFolders();
           });
           on(q("saveAllBtn"), "click", () => {
@@ -1351,9 +1354,7 @@
               "all_tournaments"
             );
             if (!name) return;
-            const folderKey = `${new Date()
-              .toISOString()
-              .slice(0, 10)}_${name}`;
+            const folderKey = `${name}`;
 
             // Copy everything from TOURNAMENTS
             const archive = {};
@@ -1439,16 +1440,36 @@
               for (const [k, v] of Object.entries(parsed.all)) {
                 TOURNAMENTS[k] = JSON.parse(JSON.stringify(v));
                 TOURNAMENTS[k].stats = new Map(Object.entries(v.stats || {}));
+                TOURNAMENTS[k].matchType = v.matchType || "Singles"; // restore match type
+              }
+              // 🔑 Fix: Set dropdown based on the active category (e.g. Batch1)
+              const activeKey = getKey();
+              const activeState = TOURNAMENTS[activeKey];
+              if (matchTypeSel && activeState) {
+                matchTypeSel.value = activeState.matchType || "Singles";
               }
               renderAll();
+              renderAllStats();
             } else {
               // single category archive (old style)
               q("popupContent").innerHTML = `
-      <p><b>Players:</b> ${parsed.players.map((p) => p.name).join(", ")}</p>
-      <p><b>Matches:</b> ${parsed.matches.length}</p>
-    `;
+  <p><b>Players:</b> ${parsed.players.map((p) => p.name).join(", ")}</p>
+  <p><b>Matches:</b> ${parsed.matches.length}</p>
+`;
+
               TOURNAMENTS[getKey()] = JSON.parse(JSON.stringify(parsed));
+
+              // 🔑 restore matchType into state
+              TOURNAMENTS[getKey()].matchType = parsed.matchType || "Singles";
+
+              // 🔑 also update dropdown so UI matches the loaded state
+              if (matchTypeSel) {
+                matchTypeSel.value = TOURNAMENTS[getKey()].matchType;
+              }
+
               renderAll();
+              renderStats();
+              renderAllStats();
             }
           };
 
@@ -1728,6 +1749,7 @@
                   btn.disabled = true;
                   recomputeStats();
                   renderStats();
+                  renderAllStats();
                   saveDB();
                 };
                 rowIdx++;
@@ -1941,7 +1963,19 @@
             .then(() => loadDB())
             .then(() => {
               const st = getState();
-              if (matchTypeSel) matchTypeSel.value = st.matchType || "Singles";
+
+              // Restore last match type (default to Singles only if nothing saved)
+              if (matchTypeSel) {
+                matchTypeSel.value = st.matchType ? st.matchType : "Singles";
+
+                // Keep state in sync when user changes dropdown
+                matchTypeSel.addEventListener("change", () => {
+                  const s = getState();
+                  s.matchType = matchTypeSel.value; // persist selection
+                  saveDB();
+                });
+              }
+
               maybeAutoBuild();
               renderAll();
               renderFolders();
@@ -1949,6 +1983,7 @@
             .catch((err) => {
               console.warn("DB init failed", err);
             });
+
           window.renderAll = renderAll;
 
           // sample
