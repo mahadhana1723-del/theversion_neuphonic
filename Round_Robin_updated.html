@@ -300,6 +300,37 @@
       .folder-link:hover {
         text-decoration: underline;
       }
+      #folderList {
+        list-style: none;
+        padding: 0;
+        margin: 8px 0;
+      }
+      #folderList li {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: var(--panel-2);
+        padding: 6px 10px;
+        margin-bottom: 6px;
+        border-radius: 8px;
+        box-shadow: var(--shadow-light);
+      }
+      #folderList li span {
+        font-weight: 600;
+        color: var(--accent);
+        cursor: pointer;
+      }
+      #folderList li button {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 14px;
+        padding: 2px 6px;
+        border-radius: 6px;
+      }
+      #folderList li button:hover {
+        background: #f8d7da;
+      }
     </style>
   </head>
   <body>
@@ -1300,19 +1331,22 @@
           function renderFolders() {
             const ul = q("folderList");
             ul.innerHTML = "";
+            const keys = [];
             for (let i = 0; i < localStorage.length; i++) {
               const key = localStorage.key(i);
               if (key.startsWith("folder_")) {
-                const folderKey = key.replace("folder_", "");
-                const li = document.createElement("li");
-                li.innerHTML = `
-  <span class="folder-link" onclick="toggleFolderPopup('${folderKey}')">${folderKey}</span>
-  <button onclick="confirmDeleteFolder('${folderKey}')">❌</button>
-`;
-
-                ul.appendChild(li);
+                keys.push(key.replace("folder_", ""));
               }
             }
+            keys.sort(); // keep them ordered by name/date
+            keys.forEach((folderKey) => {
+              const li = document.createElement("li");
+              li.innerHTML = `
+      <span onclick="toggleFolderPopup('${folderKey}')">${folderKey}</span>
+      <button onclick="confirmDeleteFolder('${folderKey}')">❌</button>
+    `;
+              ul.appendChild(li);
+            });
           }
 
           window.toggleFolderPopup = (folderKey) => {
