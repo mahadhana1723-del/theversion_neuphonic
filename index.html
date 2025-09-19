@@ -3,22 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Badminton Manager - Practice</title>
-    <!-- Basic favicons -->
+    <title>Badminton Manager</title>
     <link rel="icon" href="shuttle.png" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/icon-32.png" />
-    <link rel="icon" type="image/png" sizes="16x16" href="/icon-16.png" />
-
-    <!-- Apple (iOS) home-screen -->
-    <link rel="apple-touch-icon" sizes="180x180" href="minia.png" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-
-    <!-- Android / Chrome -->
-    <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#f9f9fc" />
-
-    <link rel="icon" href="data:," />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
@@ -26,41 +12,25 @@
     <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
     <style>
       :root {
-        --bg: #f0f7ff;
-        --card: #ffffff;
-        --text: #1c2b40;
-        --muted: #777;
-        --primary: #ff6f61; /* coral red */
-        --accent: #6a5acd; /* slate blue */
-        --line: #e0e0e0;
-        --radius: 14px;
-        --compact-topbar-height: 56px;
-        --compact-tab-size: 48px;
-      }
-      :root.dark {
-        --bg: #0f1720;
-        --card: #0b1220;
-        --text: #e6eefb;
-        --muted: #9fb4d6;
-        --primary: #6ea8ff;
-        --accent: #3d72f2;
-        --line: #293250;
+        --bg: linear-gradient(135deg, #4facfe, #ff7eb3);
+        --card: rgba(255, 255, 255, 0.15);
+        --text: #fff;
+        --muted: #d1d5db;
+        --topbar-height: 64px;
       }
       * {
         box-sizing: border-box;
-      }
-      html,
-      body {
-        height: 100%;
         margin: 0;
-        font: 14px/1.5 "Inter", system-ui, Arial;
+        padding: 0;
       }
       body {
+        font: 15px/1.6 "Inter", system-ui, Arial;
         background: var(--bg);
+        min-height: 100vh;
         color: var(--text);
       }
 
-      /* ===== Neumorphic Auth ===== */
+      /* ===== Auth Page ===== */
       #authView {
         display: flex;
         align-items: center;
@@ -73,160 +43,355 @@
         align-items: center;
         justify-content: center;
         gap: 30px;
-        max-width: 900px;
-        width: 100%;
         flex-wrap: wrap;
-      }
-      .auth-anim {
-        flex: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        width: 100%;
+        max-width: 950px;
       }
       .auth-anim lottie-player {
-        width: 100%;
-        max-width: 320px;
+        max-width: 300px;
       }
       .auth-box {
-        width: 100%;
-        max-width: 360px;
         background: var(--card);
-        border-radius: var(--radius);
-        padding: 24px;
-        box-shadow: 9px 9px 20px rgba(163, 177, 198, 0.55),
-          -9px -9px 20px rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        border-radius: 18px;
+        padding: 32px;
+        width: 100%;
+        max-width: 380px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
       }
       h2 {
-        margin-top: 0;
+        margin-bottom: 6px;
+      }
+      p {
+        margin-bottom: 18px;
+        font-size: 0.9rem;
+        color: var(--muted);
       }
       .form-group {
+        margin-bottom: 18px;
         position: relative;
-        margin: 16px 0;
       }
       .form-group input {
         width: 100%;
-        padding: 12px 40px 12px 12px;
+        padding: 12px 14px;
         border: none;
-        border-radius: 12px;
-        background: var(--card);
-        color: inherit;
-        box-shadow: inset 6px 6px 12px rgba(0, 0, 0, 0.08),
-          inset -6px -6px 12px rgba(255, 255, 255, 0.8);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.25);
+        color: #fff;
+        font-size: 0.95rem;
+        outline: none;
+        box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.2);
       }
       .form-group label {
         position: absolute;
         top: -8px;
-        left: 12px;
-        font-size: 0.8rem;
+        left: 14px;
+        font-size: 0.75rem;
         color: var(--muted);
-        background: var(--card);
-        padding: 0 4px;
+        background: rgba(0, 0, 0, 0.4);
+        padding: 0 6px;
+        border-radius: 6px;
       }
       .form-group .toggle-password {
         position: absolute;
-        right: 10px;
+        right: 12px;
         top: 50%;
         transform: translateY(-50%);
-        border: none;
         background: none;
-        cursor: pointer;
-        color: var(--muted);
-      }
-      .btn {
-        width: 100%;
-        padding: 12px;
         border: none;
-        border-radius: 12px;
+        color: var(--muted);
         cursor: pointer;
-        background: linear-gradient(145deg, #ff6f61, #6a5acd);
-        transition: 0.3s;
+      }
+
+      /* Buttons */
+      .btn {
+        padding: 8px 14px;
+        border: none;
+        border-radius: 30px;
+        font-weight: 600;
+        background: linear-gradient(135deg, #ff7eb3, #4facfe);
         color: #fff;
-        box-shadow: 6px 6px 14px rgba(0, 0, 0, 0.25),
-          -6px -6px 14px rgba(255, 255, 255, 0.05);
+        cursor: pointer;
+        transition: all 0.3s;
+        box-shadow: 0 6px 14px rgba(0, 0, 0, 0.25);
       }
       .btn:hover {
-        filter: brightness(1.1);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
       }
       .link {
         text-align: center;
         margin-top: 12px;
-        font-size: 0.9rem;
-        color: var(--primary);
+        font-size: 0.85rem;
+        color: #ffd6f0;
         cursor: pointer;
       }
 
-      /* ===== App ===== */
+      /* ===== App View ===== */
       #appView {
         display: none;
-        flex-direction: column;
         height: 100vh;
         width: 100%;
       }
+
+      /* Topbar */
       .topbar {
-        height: var(--compact-topbar-height);
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 6px 14px;
-        background: var(--card);
-        box-shadow: 6px 6px 14px rgba(0, 0, 0, 0.08),
-          -6px -6px 14px rgba(255, 255, 255, 0.8);
+        background: rgba(0, 0, 0, 0.4);
+        backdrop-filter: blur(12px);
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+        z-index: 1000;
+      }
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 18px;
+        font-weight: 700;
+        padding: 10px;
+      }
+      .logo img {
+        width: 28px;
+      }
+      .user-info {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px;
+      }
+      .user-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #ff7eb3, #4facfe);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        color: #fff;
+      }
+
+      /* ===== Chrome-style Tabs ===== */
+      .tabs {
+        display: flex;
+        gap: 2;
+        padding: 0 4px;
+        background: rgba(0, 0, 0, 0.15);
+        border-radius: 14px 14px 0 0;
+      }
+      .tab {
+        padding: 10px 22px;
+        background: rgba(255, 255, 255, 0.1);
+        color: #ccc;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s;
+        border-radius: 14px 14px 0 0;
+        margin-right: 2px;
+      }
+      .tab.active {
+        background: linear-gradient(135deg, #ff7eb3, #4facfe);
+        color: #fff;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+        z-index: 2;
+        border-radius: 18px; /* fully capsule */
+      }
+
+      .tab:hover:not(.active) {
+        background: rgba(255, 255, 255, 0.2);
+      }
+
+      /* First & Last tab rounded bottoms */
+      .tab:first-child {
+        border-top-left-radius: 18px;
+        border-bottom-left-radius: 12px;
+      }
+      .tab:last-child {
+        border-top-right-radius: 18px;
+        border-bottom-right-radius: 12px;
+      }
+
+      /* Vertical pills when sidebar */
+      body.tabs-left .tab,
+      body.tabs-right .tab {
+        border-radius: 12px;
+        margin: 4px 0;
+        width: 100%;
+      }
+
+      /* ===== Position Modes ===== */
+      body.tabs-top .topbar {
+        flex-direction: row;
         position: fixed;
         top: 0;
         left: 0;
         right: 0;
-        z-index: 999;
+        height: var(--topbar-height);
+        padding: 0 18px;
       }
-      .tabs {
+      body.tabs-top .tabs {
+        flex-direction: row;
+      }
+      body.tabs-top .pane {
+        margin-top: var(--topbar-height);
+      }
+
+      body.tabs-left {
         display: flex;
-        gap: 10px;
-        overflow-x: auto;
       }
-      .tab {
-        width: var(--compact-tab-size);
-        height: var(--compact-tab-size);
-        border-radius: var(--radius);
-        border: none;
-        background: var(--card);
-        cursor: pointer;
-        box-shadow: 6px 6px 12px rgba(0, 0, 0, 0.08),
-          -6px -6px 12px rgba(255, 255, 255, 0.8);
+      body.tabs-left .topbar {
+        flex-direction: column;
+        align-items: stretch;
+        width: 220px;
+        height: 100vh;
+        position: fixed;
+        left: 0;
+        top: 0;
+        bottom: 0;
+      }
+      body.tabs-left .tabs {
+        flex-direction: column;
+        align-items: stretch;
+        margin-top: 20px;
+      }
+      body.tabs-left .pane {
+        margin-left: 220px;
+      }
+
+      body.tabs-right {
         display: flex;
-        align-items: center;
-        justify-content: center;
       }
-      .tab.active {
-        background: linear-gradient(145deg, #ff6f61, #6a5acd);
-        color: #fff;
-        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+      body.tabs-right .topbar {
+        flex-direction: column;
+        align-items: stretch;
+        width: 220px;
+        height: 100vh;
+        position: fixed;
+        right: 0;
+        top: 0;
+        bottom: 0;
       }
+      body.tabs-right .tabs {
+        flex-direction: column;
+        align-items: stretch;
+        margin-top: 20px;
+      }
+      body.tabs-right .pane {
+        margin-right: 220px;
+      }
+
       .pane {
         flex: 1;
-        margin-top: var(--compact-topbar-height);
       }
       .pane iframe {
         width: 100%;
         height: 100%;
         border: none;
-        border-radius: 12px;
-        background: var(--card);
+        border-radius: 16px;
       }
+
       .hidden {
         display: none !important;
       }
 
-      /* Mobile: keep animation but smaller */
-      @media (max-width: 640px) {
-        .auth-anim lottie-player {
-          max-width: 200px;
-        }
-        .auth-wrap {
+      /* ===== Floating Position Switcher ===== */
+      .position-switcher {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        display: flex;
+        gap: 8px;
+        z-index: 2000;
+      }
+      .position-switcher .btn {
+        padding: 8px;
+        font-size: 14px;
+        border-radius: 50%;
+        width: 38px;
+        height: 38px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+      }
+
+      /* ===== Mobile Responsive Fixes ===== */
+      @media (max-width: 768px) {
+        body.tabs-left,
+        body.tabs-right {
           flex-direction: column;
         }
+        body.tabs-left .topbar,
+        body.tabs-right .topbar {
+          flex-direction: row;
+          width: 100%;
+          height: var(--topbar-height);
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+        }
+        body.tabs-left .pane,
+        body.tabs-right .pane {
+          margin: 0;
+          margin-top: var(--topbar-height);
+        }
+        .tabs {
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+          gap: 6px;
+          padding: 6px;
+        }
+        .tab {
+          flex: 0 0 auto;
+          padding: 8px 16px;
+          font-size: 14px;
+        }
+        .user-info {
+          flex-wrap: wrap;
+          gap: 6px;
+          font-size: 14px;
+        }
+        .user-avatar {
+          width: 28px;
+          height: 28px;
+          font-size: 14px;
+        }
+        .btn {
+          padding: 6px 10px;
+          font-size: 13px;
+        }
+        .pane iframe {
+          border-radius: 0;
+        }
+      }
+      /* ===== Tabs Bottom Mode ===== */
+      body.tabs-bottom {
+        display: flex;
+        flex-direction: column;
+      }
+      body.tabs-bottom .topbar {
+        flex-direction: row;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: var(--topbar-height);
+        padding: 0 18px;
+      }
+      body.tabs-bottom .tabs {
+        flex-direction: row;
+        justify-content: center;
+      }
+      body.tabs-bottom .pane {
+        margin-bottom: var(--topbar-height);
       }
     </style>
   </head>
-  <body>
+  <body class="tabs-top">
     <!-- AUTH -->
     <div id="authView">
       <div class="auth-wrap">
@@ -243,7 +408,7 @@
           <!-- Sign In -->
           <div id="signInForm">
             <h2>Welcome Back 👋</h2>
-            <p>Log in to continue managing your tournaments.</p>
+            <p>Log in to continue managing tournaments.</p>
             <div class="form-group">
               <input id="username" type="text" placeholder="Username" />
               <label for="username">Username</label>
@@ -255,7 +420,9 @@
                 <i class="fa fa-eye"></i>
               </button>
             </div>
-            <button id="signInBtn" class="btn">Sign In</button>
+            <button id="signInBtn" class="btn" style="width: 100%">
+              Sign In
+            </button>
             <div class="link" id="goSignUp">Don’t have an account? Sign Up</div>
           </div>
 
@@ -264,26 +431,32 @@
             <h2>Create Account ✨</h2>
             <p>Register below to get started.</p>
             <div class="form-group">
-              <input id="newName" type="text" placeholder="Name" />
-              <label for="newName">Name</label>
+              <input id="newName" type="text" placeholder="Name" /><label
+                >Name</label
+              >
             </div>
             <div class="form-group">
-              <input id="newEmail" type="email" placeholder="Email" />
-              <label for="newEmail">Email</label>
+              <input id="newEmail" type="email" placeholder="Email" /><label
+                >Email</label
+              >
             </div>
             <div class="form-group">
-              <input id="newPass" type="password" placeholder="Password" />
-              <label for="newPass">Password</label>
+              <input
+                id="newPass"
+                type="password"
+                placeholder="Password"
+              /><label>Password</label>
             </div>
             <div class="form-group">
               <input
                 id="newPass2"
                 type="password"
                 placeholder="Confirm Password"
-              />
-              <label for="newPass2">Confirm Password</label>
+              /><label>Confirm Password</label>
             </div>
-            <button id="signUpBtn" class="btn">Create Account</button>
+            <button id="signUpBtn" class="btn" style="width: 100%">
+              Create Account
+            </button>
             <div class="link" id="goSignIn">
               Already have an account? Sign In
             </div>
@@ -295,43 +468,58 @@
     <!-- APP -->
     <div id="appView">
       <div class="topbar">
+        <div class="logo"><img src="shuttle.png" /> Badminton Manager</div>
         <div class="tabs">
           <div class="tab active" data-target="dashboard">
-            <i class="fa fa-home"></i>
+            <i class="fa fa-home"></i> Dashboard
           </div>
           <div class="tab" data-target="players">
-            <i class="fa fa-users"></i>
+            <i class="fa fa-users"></i> Players
           </div>
           <div class="tab" data-target="tournament">
-            <i class="fa fa-trophy"></i>
+            <i class="fa fa-trophy"></i> Tournaments
           </div>
           <div class="tab" data-target="roundrobin">
-            <i class="fa fa-layer-group"></i>
+            <i class="fa fa-layer-group"></i> Round Robin
           </div>
           <div class="tab" data-target="attendance">
-            <i class="fa fa-check-square"></i>
+            <i class="fa fa-check-square"></i> Attendance
           </div>
           <div class="tab" data-target="bracket">
-            <i class="fa fa-sitemap"></i>
+            <i class="fa fa-sitemap"></i> Brackets
           </div>
         </div>
-        <div style="display: flex; align-items: center; gap: 8px">
-          <span id="currentUser" style="font-size: 13px; color: var(--muted)"
-            >Signed in</span
-          >
+        <div class="user-info">
+          <div id="userAvatar" class="user-avatar">U</div>
+          <span id="currentUser">Signed in</span>
           <button id="signOutBtn" class="btn">Sign Out</button>
-          <button id="themeBtn" class="btn">🌓</button>
         </div>
       </div>
       <div class="pane"><iframe id="contentFrame"></iframe></div>
     </div>
 
+    <!-- Floating Position Switcher -->
+    <div class="position-switcher">
+      <button class="btn" id="setTop" title="Tabs on Top">
+        <i class="fa fa-arrows-alt-h"></i>
+      </button>
+      <button class="btn" id="setLeft" title="Tabs Left">
+        <i class="fa fa-arrow-left"></i>
+      </button>
+      <button class="btn" id="setRight" title="Tabs Right">
+        <i class="fa fa-arrow-right"></i>
+      </button>
+      <button class="btn" id="setBottom" title="Tabs Bottom">
+        <i class="fa fa-arrows-alt-v"></i>
+      </button>
+    </div>
+
     <script>
       const API_URL = "https://theworldofsportsmans.onrender.com/api";
-
       const authView = document.getElementById("authView");
       const appView = document.getElementById("appView");
       const currentUser = document.getElementById("currentUser");
+      const userAvatar = document.getElementById("userAvatar");
 
       const signInForm = document.getElementById("signInForm");
       const signUpForm = document.getElementById("signUpForm");
@@ -362,8 +550,9 @@
       function doSignIn(u) {
         authView.style.display = "none";
         appView.style.display = "flex";
-        currentUser.textContent = `Signed in as ${u.username}`;
-        localStorage.setItem("user", JSON.stringify(u)); // 🔹 Save user also
+        currentUser.textContent = u.username ? `👤 ${u.username}` : "Signed in";
+        userAvatar.textContent = u.username ? u.username[0].toUpperCase() : "U";
+        localStorage.setItem("user", JSON.stringify(u));
         loadTab("dashboard");
       }
       function doSignOut() {
@@ -374,7 +563,6 @@
         document.getElementById("contentFrame").src = "";
       }
 
-      // On page load: restore session if token exists
       window.onload = () => {
         const token = localStorage.getItem("token");
         const u = localStorage.getItem("user");
@@ -402,7 +590,7 @@
             localStorage.setItem("token", data.token);
             doSignIn(data.user);
           } else alert(data.msg);
-        } catch (err) {
+        } catch {
           alert("Server error, try again later");
         }
       };
@@ -433,15 +621,12 @@
             signUpForm.classList.add("hidden");
             signInForm.classList.remove("hidden");
           } else alert("⚠️ " + data.msg);
-        } catch (err) {
+        } catch {
           alert("Server error, try again later");
         }
       };
 
       document.getElementById("signOutBtn").onclick = doSignOut;
-      document.getElementById("themeBtn").onclick = () => {
-        document.documentElement.classList.toggle("dark");
-      };
 
       // Tabs
       const tabs = document.querySelectorAll(".tab");
@@ -453,6 +638,7 @@
             loadTab(tab.dataset.target);
           })
       );
+
       function loadTab(t) {
         const FILES = {
           dashboard: "dashboard.html",
@@ -464,6 +650,16 @@
         };
         if (FILES[t]) document.getElementById("contentFrame").src = FILES[t];
       }
+
+      // Floating position switcher
+      document.getElementById("setTop").onclick = () =>
+        (document.body.className = "tabs-top");
+      document.getElementById("setLeft").onclick = () =>
+        (document.body.className = "tabs-left");
+      document.getElementById("setRight").onclick = () =>
+        (document.body.className = "tabs-right");
+      document.getElementById("setBottom").onclick = () =>
+        (document.body.className = "tabs-bottom");
     </script>
   </body>
 </html>
