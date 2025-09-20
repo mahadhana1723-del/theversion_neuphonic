@@ -100,12 +100,19 @@ app.post("/api/signin", async (req, res) => {
     });
 
     // ✅ Send email to admin
-    await transporter.sendMail({
-      from: process.env.ALERT_EMAIL,
-      to: process.env.ADMIN_EMAIL, // where you want alerts
-      subject: "🔔 User Login Notification",
-      text: `User ${user.username} logged in at ${new Date().toLocaleString()}`,
-    });
+    try {
+      await transporter.sendMail({
+        from: process.env.ALERT_EMAIL,
+        to: process.env.ADMIN_EMAIL,
+        subject: "🔔 User Login Notification",
+        text: `User ${
+          user.username
+        } logged in at ${new Date().toLocaleString()}`,
+      });
+      console.log("✅ Email sent");
+    } catch (err) {
+      console.error("❌ Email send failed:", err);
+    }
 
     res.json({
       msg: "Login successful",
