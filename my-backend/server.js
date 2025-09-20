@@ -17,7 +17,7 @@ const allowedOrigins = [
   "http://127.0.0.1:5500",
   "http://127.0.0.1:5501", // <-- add this line
   "https://mahadhana1723-del.github.io",
-  "https://c6d0d63b7acd.ngrok-free.app"
+  "https://c6d0d63b7acd.ngrok-free.app",
 ];
 const corsOptions = {
   origin: function (origin, callback) {
@@ -27,12 +27,13 @@ const corsOptions = {
   },
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: true
+  credentials: true,
 };
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
 
-mongoose.connect(process.env.MONGO_URI)
+mongoose
+  .connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB connected"))
   .catch((err) => console.error("❌ Mongo error:", err));
 
@@ -44,7 +45,7 @@ const userSchema = new mongoose.Schema({
   email: String,
   password: String,
   oauthId: String,
-  provider: String
+  provider: String,
 });
 const User = mongoose.model("User", userSchema);
 
@@ -59,7 +60,12 @@ app.post("/api/signup", async (req, res) => {
     if (exists) return res.status(400).json({ msg: "User already exists" });
 
     const hashed = await bcrypt.hash(password, 10);
-    const user = new User({ username, email, password: hashed, provider: "local" });
+    const user = new User({
+      username,
+      email,
+      password: hashed,
+      provider: "local",
+    });
     await user.save();
 
     res.json({ msg: "Account created successfully" });
@@ -69,6 +75,17 @@ app.post("/api/signup", async (req, res) => {
 });
 
 // ✅ Local Signin
+const nodemailer = require("nodemailer");
+
+// 📧 Setup mail transporter (use your email + App Password)
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.ALERT_EMAIL, // your Gmail
+    pass: process.env.ALERT_PASSWORD, // app password (not your main password)
+  },
+});
+
 app.post("/api/signin", async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -78,8 +95,23 @@ app.post("/api/signin", async (req, res) => {
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) return res.status(400).json({ msg: "Invalid credentials" });
 
-    const token = jwt.sign({ id: user._id, username: user.username }, SECRET, { expiresIn: "1h" });
-    res.json({ msg: "Login successful", token, user: { username: user.username, email: user.email } });
+    const token = jwt.sign({ id: user._id, username: user.username }, SECRET, {
+      expiresIn: "1h",
+    });
+
+    // ✅ Send email to admin
+    await transporter.sendMail({
+      from: process.env.ALERT_EMAIL,
+      to: process.env.ADMIN_EMAIL, // where you want alerts
+      subject: "🔔 User Login Notification",
+      text: `User ${user.username} logged in at ${new Date().toLocaleString()}`,
+    });
+
+    res.json({
+      msg: "Login successful",
+      token,
+      user: { username: user.username, email: user.email },
+    });
   } catch (err) {
     res.status(500).json({ msg: "Server error", error: err.message });
   }
@@ -106,7 +138,9 @@ app.get("/api/profile", authMiddleware, (req, res) => {
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const FacebookStrategy = require("passport-facebook").Strategy;
 
-app.use(session({ secret: "keyboardcat", resave: false, saveUninitialized: false }));
+app.use(
+  session({ secret: "keyboardcat", resave: false, saveUninitialized: false })
+);
 app.use(passport.initialize());
 app.use(passport.session());
 
@@ -121,63 +155,97 @@ passport.deserializeUser(async (id, done) => {
 });
 
 // Google Strategy
-passport.use(new GoogleStrategy({
-  clientID: process.env.GOOGLE_CLIENT_ID,
-  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  callbackURL: "/api/auth/google/callback"
-}, async (accessToken, refreshToken, profile, done) => {
-  try {
-    let user = await User.findOne({ oauthId: profile.id, provider: "google" });
-    if (!user) {
-      user = await User.create({
-        username: profile.displayName,
-        email: profile.emails?.[0]?.value,
-        oauthId: profile.id,
-        provider: "google"
-      });
+passport.use(
+  new GoogleStrategy(
+    {
+      clientID: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      callbackURL: "/api/auth/google/callback",
+    },
+    async (accessToken, refreshToken, profile, done) => {
+      try {
+        let user = await User.findOne({
+          oauthId: profile.id,
+          provider: "google",
+        });
+        if (!user) {
+          user = await User.create({
+            username: profile.displayName,
+            email: profile.emails?.[0]?.value,
+            oauthId: profile.id,
+            provider: "google",
+          });
+        }
+        done(null, user);
+      } catch (err) {
+        done(err, null);
+      }
     }
-    done(null, user);
-  } catch (err) {
-    done(err, null);
-  }
-}));
+  )
+);
 
 // Facebook Strategy
-passport.use(new FacebookStrategy({
-  clientID: process.env.FB_CLIENT_ID,
-  clientSecret: process.env.FB_CLIENT_SECRET,
-  callbackURL: "/api/auth/facebook/callback",
-  profileFields: ["id", "displayName", "emails"]
-}, async (accessToken, refreshToken, profile, done) => {
-  try {
-    let user = await User.findOne({ oauthId: profile.id, provider: "facebook" });
-    if (!user) {
-      user = await User.create({
-        username: profile.displayName,
-        email: profile.emails?.[0]?.value,
-        oauthId: profile.id,
-        provider: "facebook"
-      });
+passport.use(
+  new FacebookStrategy(
+    {
+      clientID: process.env.FB_CLIENT_ID,
+      clientSecret: process.env.FB_CLIENT_SECRET,
+      callbackURL: "/api/auth/facebook/callback",
+      profileFields: ["id", "displayName", "emails"],
+    },
+    async (accessToken, refreshToken, profile, done) => {
+      try {
+        let user = await User.findOne({
+          oauthId: profile.id,
+          provider: "facebook",
+        });
+        if (!user) {
+          user = await User.create({
+            username: profile.displayName,
+            email: profile.emails?.[0]?.value,
+            oauthId: profile.id,
+            provider: "facebook",
+          });
+        }
+        done(null, user);
+      } catch (err) {
+        done(err, null);
+      }
     }
-    done(null, user);
-  } catch (err) {
-    done(err, null);
-  }
-}));
+  )
+);
 
 // OAuth routes
-app.get("/api/auth/google", passport.authenticate("google", { scope: ["profile", "email"] }));
-app.get("/api/auth/google/callback", passport.authenticate("google", { failureRedirect: "/" }),
+app.get(
+  "/api/auth/google",
+  passport.authenticate("google", { scope: ["profile", "email"] })
+);
+app.get(
+  "/api/auth/google/callback",
+  passport.authenticate("google", { failureRedirect: "/" }),
   (req, res) => {
-    const token = jwt.sign({ id: req.user._id, username: req.user.username }, SECRET, { expiresIn: "7d" });
+    const token = jwt.sign(
+      { id: req.user._id, username: req.user.username },
+      SECRET,
+      { expiresIn: "7d" }
+    );
     res.redirect(`${process.env.CLIENT_URL}?token=${token}`);
   }
 );
 
-app.get("/api/auth/facebook", passport.authenticate("facebook", { scope: ["email"] }));
-app.get("/api/auth/facebook/callback", passport.authenticate("facebook", { failureRedirect: "/" }),
+app.get(
+  "/api/auth/facebook",
+  passport.authenticate("facebook", { scope: ["email"] })
+);
+app.get(
+  "/api/auth/facebook/callback",
+  passport.authenticate("facebook", { failureRedirect: "/" }),
   (req, res) => {
-    const token = jwt.sign({ id: req.user._id, username: req.user.username }, SECRET, { expiresIn: "7d" });
+    const token = jwt.sign(
+      { id: req.user._id, username: req.user.username },
+      SECRET,
+      { expiresIn: "7d" }
+    );
     res.redirect(`${process.env.CLIENT_URL}?token=${token}`);
   }
 );
@@ -186,8 +254,9 @@ app.get("/api/test", (req, res) => {
   res.json({ message: "API working fine ✅" });
 });
 
-
 // ------------------- END OAUTH -------------------
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));
+app.listen(PORT, () =>
+  console.log(`🚀 Server running on http://localhost:${PORT}`)
+);
