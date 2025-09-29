@@ -856,7 +856,6 @@
   </head>
   <body>
     <nav id="menuTabs">
-      <button id="menuToggleBtn">☰ Menu</button>
       <button data-tab="tournamentTab" class="active">🏆 Tournament</button>
       <button data-tab="allStatsTab">📊 All Stats</button>
       <button data-tab="playersTab">👥 Players</button>
@@ -1250,20 +1249,6 @@
 
           const GLOBAL_DB_NAME = "PlayerDB";
           const GLOBAL_STORE = "players";
-
-          const menuToggleBtn = document.getElementById("menuToggleBtn");
-          const headerEl = document.querySelector("header");
-          const headerOverlay = document.getElementById("headerOverlay");
-
-          menuToggleBtn.addEventListener("click", () => {
-            headerEl.classList.toggle("mobile-open");
-            headerOverlay.classList.toggle("active");
-          });
-
-          headerOverlay.addEventListener("click", () => {
-            headerEl.classList.remove("mobile-open");
-            headerOverlay.classList.remove("active");
-          });
 
           let touchStartX = 0;
           let touchEndX = 0;
