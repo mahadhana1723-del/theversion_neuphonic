@@ -771,10 +771,92 @@
         color: #dc2626; /* red for negative points */
         font-weight: 600;
       }
+      /* --- Mobile View Fixes --- */
+      @media (max-width: 768px) {
+        .tab {
+          font-size: 14px;
+          padding: 8px;
+        }
+        header {
+          flex-wrap: wrap;
+        }
+        :root {
+          --box-w: 140px;
+          --box-h: 46px;
+          --col-gap: 120px;
+        }
+        .player-card {
+          flex-wrap: wrap;
+          padding: 6px;
+        }
+        .player-photo {
+          width: 40px;
+          height: 40px;
+        }
+        .board {
+          min-height: 50vh;
+          overflow-x: auto;
+        }
+        .stats-table {
+          display: block;
+          overflow-x: auto;
+          white-space: nowrap;
+        }
+      }
+      @media (max-width: 480px) {
+        .tab {
+          font-size: 12px;
+          padding: 6px;
+        }
+        :root {
+          --box-w: 120px;
+          --box-h: 40px;
+          --col-gap: 100px;
+        }
+        .player-meta .info {
+          font-size: 10px;
+        }
+      }
+      #menuToggleBtn {
+        background: rgba(255, 255, 255, 0.15);
+        color: white;
+        font-weight: 600;
+        border: none;
+        border-radius: 25px;
+        padding: 10px 18px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+
+      #menuToggleBtn:hover {
+        background: linear-gradient(
+          135deg,
+          var(--accent-pink),
+          var(--accent-yellow)
+        );
+        color: var(--text-dark);
+      }
+
+      #headerOverlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(61, 54, 92, 0.4);
+        z-index: 90;
+        backdrop-filter: blur(4px);
+      }
+
+      #headerOverlay.active {
+        display: block;
+      }
     </style>
   </head>
   <body>
     <nav id="menuTabs">
+      <button id="menuToggleBtn">☰ Menu</button>
       <button data-tab="tournamentTab" class="active">🏆 Tournament</button>
       <button data-tab="allStatsTab">📊 All Stats</button>
       <button data-tab="playersTab">👥 Players</button>
@@ -901,6 +983,8 @@
           </div>
         </div>
       </header>
+
+      <div id="headerOverlay"></div>
 
       <div id="playerSidebar">
         <h3 style="margin-top: 0; color: var(--primary-dark)">
@@ -1166,6 +1250,51 @@
 
           const GLOBAL_DB_NAME = "PlayerDB";
           const GLOBAL_STORE = "players";
+
+          const menuToggleBtn = document.getElementById("menuToggleBtn");
+          const headerEl = document.querySelector("header");
+          const headerOverlay = document.getElementById("headerOverlay");
+
+          menuToggleBtn.addEventListener("click", () => {
+            headerEl.classList.toggle("mobile-open");
+            headerOverlay.classList.toggle("active");
+          });
+
+          headerOverlay.addEventListener("click", () => {
+            headerEl.classList.remove("mobile-open");
+            headerOverlay.classList.remove("active");
+          });
+
+          let touchStartX = 0;
+          let touchEndX = 0;
+          const SWIPE_THRESHOLD = 50; // minimum swipe distance
+
+          document.addEventListener("touchstart", (e) => {
+            touchStartX = e.changedTouches[0].clientX;
+          });
+
+          document.addEventListener("touchend", (e) => {
+            touchEndX = e.changedTouches[0].clientX;
+            handleSwipe();
+          });
+
+          function handleSwipe() {
+            // Swipe from left edge to right → open header
+            if (touchStartX < 30 && touchEndX - touchStartX > SWIPE_THRESHOLD) {
+              headerEl.classList.add("mobile-open");
+              headerOverlay.classList.add("active");
+            }
+
+            // Swipe left while header is open → close header
+            if (
+              headerEl.classList.contains("mobile-open") &&
+              touchStartX > 50 &&
+              touchStartX - touchEndX > SWIPE_THRESHOLD
+            ) {
+              headerEl.classList.remove("mobile-open");
+              headerOverlay.classList.remove("active");
+            }
+          }
 
           function shuffleArray(arr) {
             const a = arr.slice();
